@@ -1,0 +1,116 @@
+INTRODUCTION
+
+	gblite.pl is a program for retrieving batches of sequences by
+	taxonomic clade and molecule type. It is meant to be simple, fast,
+	and portable, but not fully-featured. It uses WU-BLAST programs for
+	handling sequence data and SQLite for everything else.
+
+LICENSE
+
+	Public Domain
+
+INSTALLATION INSTRUCTIONS
+
+	It is assumed you have a standard Unix/Linux installation with Perl
+	(built with threading).
+
+	1. Install SQLite (free from www.sqlite.org and various package
+	management solutions). sqlite3 must be in the executable PATH.
+
+	2. Install WU-BLAST (free for academic use from blast.wustl.edu).
+	Both xdformat and xdget must be in the exectuable PATH.
+
+	3. Download GenBank files (http://www.ncbi.nlm.nih.gov/Ftp) and put
+	them in a single directory. gblite.pl looks for gb*seq.gz files in
+	the directory, so keep them compressed.
+
+	4. Download the taxonomy tar-ball (http://www.ncbi.nlm.nih.gov/Ftp)
+	The names.dmp and nodes.dmp files are required.
+
+	5. Set the GBLITE environment variable to point to a directory where
+	you want to store the database. Make sure this has enough space. The
+	SQLite and WU-BLAST databases will be stored in this location.
+
+	6. To build the database, enter a command similar to the one below
+	where <gb dir> is the directory of GenBank files <tax dir> is the
+	uncompressed taxonomy tar-ball, and <build dir> is some place to
+	keep the temporary build files. During the build procedure, there
+	will be a variety of diagnostic messages, which may be useful if
+	something goes wrong (which is why I have tee-ed the output to a log
+	file). If you have a computer with several CPUs, you can speed up
+	the build with the -p option (shown below for 8 CPUs).
+	
+		gblite.pl -p 8 build <gb dir> <tax dir> <build dir> | tee logfile
+
+	7. If the build does not complete for some reason you can rebuild
+	from where you left off without having to recompute everything. Just
+	issue the same command again (you may have to remove some of the
+	latest build files if the build died in the middle of a gzip).
+	Ultimately, you are looking for the following message at the end.
+	
+		*** gblite build complete ****
+	
+	8. After the build completes, you can remove the $GBLITE/build
+	directory as well as the GenBank and taxonomy directories. It may be
+	best to keep these around in case you need them.
+	
+RETRIEVING SEQUENCES
+
+	You must specify if the batch of sequences are nucleotide or
+	protein. By deafult, it is assumed you want nucleotide. Use the -a
+	option for protein. The -m option is used to specify different kinds
+	of nucleotide sequences.
+	
+	It is a good idea to perform a count before retrieving sequences in
+	case you enter the criteria incorrectly (e.g. so you don't end up
+	with millions of sequences when you expected hundreds).
+	
+	In the following example, I am counting all primate nucleotide
+	sequences (-c option). The Primates have taxonomy identifer 9443.
+	You can also use the taxonomic name rather than the numeric
+	identifier, so the following commands are equivalent.
+	
+		gblite.pl -c -t 9443 search
+		gbliet.pl -ct Primates search
+	
+	Here, I am limiting the search to the mRNA moltype using the -m
+	option.
+	
+		gblite.pl -c -t 9443 -m mRNA search
+	
+	For a complete list of moltypes, examine the SQLite database.
+	
+		sqlite3 $GBLITE/gblite.db
+		select distinct moltype from GenBank;
+
+	To retrieve sequences, remove the -c option.
+	
+		gblite.pl -t 9443 -m mRNA search > primate-mRNAs
+	
+NOTES
+
+	Some sequences (like patents) may not have a taxonomy id. These are
+	given a fake taxid of -1.
+
+	The taxonomy database is not always synchronized with the rest of
+	GenBank. For this reason, some sequences have valid taxids (derived
+	from the GenBank entry) but no species name or parent taxid (from
+	the Taxonomy database).
+	
+	The version number for sequences is not used. Why? There is only one
+	version for each release, so any given accession number is unique to
+	a particular release.
+	
+	What about daily updates? gblite.pl does not do incremental updates.
+	One reason is that it's much easier to reference (and reproduce) a
+	particular release than a release with a certain number of updates.
+	
+	What about other sequence formats? Well, I'd like to report GFF3
+	some day, but that day is not today.
+
+
+RELEASE NOTES
+
+	Version 2008-02-08:
+		GenBank 161 clean build. 41 GB. ~3 hours on 8 x 3.0 GHz Mac Pro.
+		GenBank 163...

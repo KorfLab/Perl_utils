@@ -1,0 +1,9 @@
+Files in this directory are perl scripts and modules (and occasionaly supporting files) that were developed by 
+people in the Korf laboratory.
+
+Adding your code to this cvs repository means that other people can edit your code. Please try to ensure that your
+code is understandable to others (good use of documentation and/or comments).
+
+Keith Bradnam
+
+May 2008
