@@ -31,7 +31,7 @@ GetOptions ("source=s"  => \$source,
 
 # check command line options
 die "must use -source option to specify a directory that contains some perl scripts or modules\n" if (!$source);
-die "must specify -target option for location of directory where symbolic links will be created\n" if ($target);
+die "must specify -target option for location of directory where symbolic links will be created\n" if (!$target);
 die "-source option has to specify full path to source directory e.g. ~keith/perl or /Users/keith/perl\n" if ($source !~ m/^(\/|~)/);
 die "must specify -pl to make links for perl scripts, -pm to make links for perl modules or both -pl and -pm\n" if (!$pl && !$pm);
 
