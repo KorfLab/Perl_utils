@@ -1652,7 +1652,7 @@ sub splitstree{
 #   Description:  creates seq_logo summary HTML page.
 #
 sub _draw_motif{
-    my @color=("red","green","yellow","blue");
+    my @color=("green","orange","blue","red");
     my @letters=("A","C","G","T");
     my %defaults=("ppm"=>undef,
                   "filename"=>undef,
@@ -1749,7 +1749,7 @@ sub _draw_motif{
 
         #calculate height of each base using Shannon's Information Content
         # H=-
-        # set heights for pictogram
+        # set heights for logo
         for (my $i=0;$i<$size;$i++){
 
             my $character=$i+1;
@@ -1777,7 +1777,29 @@ sub _draw_motif{
             my $for_total_height=2-$for_h;
             my $rev_total_height=2-$rev_h;
 
-            for (my $j=0;$j<=3;$j++){
+			# will store heights in order to put them in size order so biggest nucleotide is always on top
+			my %forward_heights;
+			my %reverse_heights;
+			
+			for (my $j=0;$j<=3;$j++){
+	                if ($ppm->[$i]->[$j]>=0.01){
+	                    my $for_line=${$arg{template}}[3];
+	                    my $height=$ppm->[$i]->[$j]*$for_total_height/2;
+						$forward_heights{$j}=$height;
+	                }
+
+	                if ($ppm->[$size-1-$i]->[3-$j]>=0.01){
+	                    my $height=$ppm->[$size-1-$i]->[3-$j]*$rev_total_height/2;
+						$reverse_heights{$j}=$height;
+	                }
+	         }			
+				
+	
+	
+			# loop through each nucleotide, starting with the lowest height 
+			# first do forward motif...
+			
+			foreach my $j (sort {$forward_heights{$a} <=> $forward_heights{$b}}(keys %forward_heights)){
                 my $color=${$arg{color}}[$j];
                 my $letter=$arg{letter}->[$j];
                 if ($ppm->[$i]->[$j]>=0.01){
@@ -1791,7 +1813,12 @@ sub _draw_motif{
                     push @forward_svg, $for_line;
                     $for_vertical_position-=($height*88);
                 }
-
+			}
+			
+			#...then reverse strand motif
+			foreach my $j (sort {$reverse_heights{$a} <=> $reverse_heights{$b}}(keys %reverse_heights)){
+				my $color=${$arg{color}}[$j];
+			    my $letter=$arg{letter}->[$j];
                 if ($ppm->[$size-1-$i]->[3-$j]>=0.01){
                     my $rev_line=${$arg{template}}[3];
                     my $height=$ppm->[$size-1-$i]->[3-$j]*$rev_total_height/2;
@@ -4113,22 +4140,22 @@ sub svg_template {
     my @svg=('<?xml version="1.0" standalone="no"?>',
              '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">',
              '<svg width="$length" height="150" version="1.1" xmlns="http://www.w3.org/2000/svg">',
-             '<text transform="matrix(1 0 0 $transformation $horizontal_position $vertical_position)" fill="$letter_color" font-family="\'Helvetica\'" font-size="120" text-anchor="middle">$letter</text>',
+             '<text transform="matrix(1 0 0 $transformation $horizontal_position $vertical_position)" fill="$letter_color" font-family="Helvetica" font-size="120" text-anchor="middle">$letter</text>',
              '<!-- Setup graph and add axis labels -->',
              '<path d="M 30,30 V 120 H $graphlength" fill="none" stroke="black"/>',
              '<path d="M 25,75 H 30" stroke="black"/>',
              '<path d="M 25,30 H 30" stroke="black"/>',
              '<path d="M 25,120 H 30" stroke="black"/>',
              '<!-- Y axis labels and tick marks -->',
-             '<text transform="matrix(1 0 0 1 18 125)" font-family="\'Helvetica-Bold\'" font-size="12">0</text>',
-             '<text transform="matrix(1 0 0 1 12 80)" font-family="\'Helvetica-Bold\'" font-size="12">50</text>',
-             '<text transform="matrix(1 0 0 1 6 35)" font-family="\'Helvetica-Bold\'" font-size="12">100</text>',
-             '<text transform="matrix(0 -1 1 0 10 110)" font-family="\'Helvetica-Bold\'" font-size="12">Percentage</text>',
+             '<text transform="matrix(1 0 0 1 18 125)" font-family="Helvetica-Bold" font-size="12">0</text>',
+             '<text transform="matrix(1 0 0 1 12 80)" font-family="Helvetica-Bold" font-size="12">50</text>',
+             '<text transform="matrix(1 0 0 1 6 35)" font-family="Helvetica-Bold" font-size="12">100</text>',
+             '<text transform="matrix(0 -1 1 0 10 110)" font-family="Helvetica-Bold" font-size="12">Percentage</text>',
              '<!-- X axis labels -->',
-             '<text transform="matrix(1 0 0 1 25 135)" font-family="\'Helvetica-Bold\'" font-size="12">5\'</text>',
-             '<text transform="matrix(1 0 0 1 $graph_length 135)" font-family="\'Helvetica-Bold\'" font-size="12">3\'</text>',
+             '<text transform="matrix(1 0 0 1 25 135)" font-family="Helvetica-Bold" font-size="12">5</text>',
+             '<text transform="matrix(1 0 0 1 $graph_length 135)" font-family="Helvetica-Bold" font-size="12">3</text>',
              '<!-- X axis labels-->',
-             '<text transform="matrix(1 0 0 1 $position_segment 135)" font-family="\'Helvetica-Bold\'" font-size="12" text-anchor="middle">$position</text>',
+             '<text transform="matrix(1 0 0 1 $position_segment 135)" font-family="Helvetica-Bold" font-size="12" text-anchor="middle">$position</text>',
              '</svg>');
     return \@svg;
 }
