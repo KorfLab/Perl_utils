@@ -2464,7 +2464,7 @@ sub nestedmica_import {
     my $motif=Motif->new();
     open (NESTED, "<$filename") || die "Couldn't Open $filename:$!\n;";
     while (<NESTED>){
-        if (/\<motifset\sxmlns/){
+        if (/\<motifset/){
             $headers[0]++;
         }
         elsif (/\<motif\>/){
@@ -4161,7 +4161,7 @@ sub svg_template {
 }
 
 sub nm_template {
-    my @nm=('<motifset xmlns="http://biotiffin.org/XMS/">',
+    my @nm=('<motifset>',
             '   <prop>',
             '       <key>$key</key>',
             '       <value>$value</value>',
