@@ -36,6 +36,23 @@ sub display {
 	my $c = $self->{cgi};
 	print $c->header;
 	print $c->start_html(-title => $self->{title},-style => {-code => $STYLE});
+
+	print "<CENTER>\n";
+        print "<a href=\"/\"><IMG alt=\"CropNet\" border=0 src=\"/images/korflab_logo1_large.jpeg\"></A>\n";
+        print "<br>\n";
+        print "<TABLE bgColor=#0000cd border=0 cellPadding=1 cellSpacing=0>\n";
+        print "<TR align=middle>\n";
+        print "<TD width=110><A href=\"/about.html\"><FONT color=#ffffff>About</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"/people.html\"><FONT color=#ffffff>People</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"/research.html\"><FONT color=#ffffff>Research</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"/publications.html\"><FONT color=#ffffff>Publications</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"/software.html\"><FONT color=#ffffff>Software & Data</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"x/grid.html\"><FONT color=#ffffff>Xgrid</FONT></A></TD>\n";
+    	print "<TD width=110><A href=\"/Forums\"><FONT color=#ffffff>Forums</FONT></A></TD>\n";
+        print "</TR>\n";
+        print "</TABLE>\n";
+        print "</CENTER>\n";
+
 	print $c->h1($self->{title});
 	print $self->{info}, $c->p;
 	
