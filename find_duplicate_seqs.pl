@@ -49,7 +49,12 @@ close(IN) || die "Couldn't close $ARGV[0]\n";
 my $counter = 1;
 foreach my $key (keys (%seq2count)){
 	if($seq2count{$key}>1){
-		print "$counter) The following entry has a sequence duplicated in another entry\n";
+		
+		# how many duplicates are there in total
+		my $duplicates = $seq2count{$key} -1;
+		
+		
+		print "$counter) The following entry has a sequence duplicated $duplicates time(s) in another entry\n";
 		print "$seq2header{$key}\n";
 		print "$key\n\n";
 		$counter++;
