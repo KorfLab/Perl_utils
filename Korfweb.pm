@@ -64,10 +64,6 @@ sub display {
 		print "</ul>";
 	}
 	
-	# feedback section
-	print $c->h3('Feedback');
-	print $CONTACT;
-		
 	# form section
 	print $c->h3('Input');
 	print $c->start_multipart_form;
@@ -114,8 +110,15 @@ sub display {
 	}
 	print $c->p;
 	print $c->submit, $c->defaults('Clear Form');
+
+	# feedback section
+	print $c->hr;
+	print $c->h3('Feedback');
+	print $CONTACT;
+		
 	print $c->end_form;
 	return $c->Vars;
+
 }
 
 sub is_non_negative_int {
