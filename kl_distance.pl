@@ -24,6 +24,7 @@ die "Please specify a word size of 10 or less\n" if ($WORD >10);
 my $freq1     = &frequency_table($FASTA1,$WORD);
 my $freq2     = &frequency_table($FASTA2,$WORD);
 
+
 # calculate reciprocal K-L distances
 my $distance1 = &kl_distance($freq1,$freq2);
 my $distance2 = &kl_distance($freq2,$freq1);
@@ -34,15 +35,18 @@ my $distance = ($distance1 + $distance2) /2;
 # convert score to bits
 $distance /= log(2);
 
-print "K-L distance = $distance\n";
+print "\nK-L distance = $distance\n\n";
 
 
 
 exit(0);
 
-
-
-
+################################################
+#
+#
+#   T H E   S U B R O U T I N E S
+#
+#
 ################################################
 
 sub frequency_table{
@@ -80,13 +84,34 @@ sub frequency_table{
 	}
 	close(FILE);
 	
-	# convert counts to frequencies
+
+	# check (and warn) if too many words do not exist in the input sequence files
+	# it is useful to know if many of the different possible words only exist as pseudocounts
+	# Also need to convert counts to frequencies
 	my %freq;
+	
+	# counter for how many words only exist as pseudocounts
+	my $only_pseudocounts = 0;
 	
 	foreach my $word (keys %count){
 		$freq{$word} = $count{$word}/$total_words;
+		$only_pseudocounts++ if ($count{$word} == 1);
 	}
 
+	my $total_keys = keys(%count);
+	my $percentage = sprintf("%.0f",$only_pseudocounts/$total_keys *100);
+	
+	# Only want to warn if a certain proportion of words only exist with counts of 1 (only pseudocounts)
+	# The K-L distance may be less meaningful if it based on many comparisons of 1 vs 1 counts
+	# The threshold level (10%) is arbitrary but should help to give a clue as to whether using a smaller word size would be more approrpriate
+
+	my $threshold = 10;
+	
+	if ($only_pseudocounts && ($percentage >= $threshold)){
+		print "\nWARNING: in file $file, $only_pseudocounts out of a possible $total_keys words ($percentage%) do not exist at all\n";
+		print "Maybe consider using a smaller word size in order to calculate a more reliable K-L distance\n"; 		
+	}
+	
 	return \%freq;
 }
 
