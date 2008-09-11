@@ -103,9 +103,9 @@ sub frequency_table{
 	
 	# Only want to warn if a certain proportion of words only exist with counts of 1 (only pseudocounts)
 	# The K-L distance may be less meaningful if it based on many comparisons of 1 vs 1 counts
-	# The threshold level (10%) is arbitrary but should help to give a clue as to whether using a smaller word size would be more approrpriate
+	# The threshold level (5%) is arbitrary but should help to give a clue as to whether using a smaller word size would be more approrpriate
 
-	my $threshold = 10;
+	my $threshold = 5;
 	
 	if ($only_pseudocounts && ($percentage >= $threshold)){
 		print "\nWARNING: in file $file, $only_pseudocounts out of a possible $total_keys words ($percentage%) do not exist at all\n";
