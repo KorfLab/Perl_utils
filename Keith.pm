@@ -101,6 +101,20 @@ Example:
  # but six values are always returned for any string
  my ($a,$c,$g,$t,$n,$other) = get_mononucleotides($sequence); 
 
+
+
+
+=head2 get_dinucleotides
+
+Returns a list of counts of all 16 dinucleotides, and 'Other' for any specified string (presumed to be DNA). 
+
+'Other' is a count of any dinucleotide which includes something other than A,C,T, or G. The percentage
+calculations exclude these 'Other' dinucleotides. 
+
+Example: 
+ my (@dinucs) = get_dinucleotides("aaccacacaggaggattttgaaag"); 
+
+
 =head1 AUTHOR
 
 Keith Bradnam (krbradnam@ucdavis.edu)
