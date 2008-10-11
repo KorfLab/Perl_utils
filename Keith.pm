@@ -32,6 +32,43 @@ sub get_mononucleotides{
 }
 
 
+# simple subroutine to just count dinucleotide frequencies
+# ignores any non-A,C,G,T character
+sub get_dinucleotides{
+        
+	# receive sequence, make sure it is all uppercase
+    my $seq = uc(shift);
+	my $length = length($seq);
+	
+	# initialize hash
+	my %di;
+   	($di{'AA'},$di{'AC'},$di{'AG'},$di{'AT'}) = (0,0,0,0,0);
+   	($di{'CA'},$di{'CC'},$di{'CG'},$di{'CT'}) = (0,0,0,0,0);
+   	($di{'GA'},$di{'GC'},$di{'GG'},$di{'GT'}) = (0,0,0,0,0);
+   	($di{'TA'},$di{'TC'},$di{'TG'},$di{'TT'}) = (0,0,0,0,0);
+
+	# want to keep track of any dinucleotides that have something other than A,C,G,or T.
+	my $other=0;
+
+    # count dinucleotide frequencies
+ 	foreach my $i (0..length($seq)){
+    	my $tmp = substr($seq,$i,2);                
+        $di{$tmp}++;
+
+		# we might see things like 'NA' or 'CN' so we will keep a count of these as well
+		$other++ if ($tmp !~ m/^[ACGT]*$/);
+     }
+	
+	return($di{'AA'},$di{'AC'},$di{'AG'},$di{'AT'},$di{'CA'},$di{'CC'},$di{'CG'},$di{'CT'},$di{'GA'},$di{'GC'},$di{'GG'},$di{'GT'},$di{'TA'},$di{'TC'},$di{'TG'},$di{'TT'},$other);
+		
+}
+
+
+
+
+
+
+
 1;
 
 __END__
