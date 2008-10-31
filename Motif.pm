@@ -2575,8 +2575,8 @@ sub meme_import {
     my $job;
     my @sequences;
     my $commandline;
-    my $background_freq=SEQ_FREQUENCY->new();
-    my $dataset_freq=SEQ_FREQUENCY->new();
+    my $background_freq=SEQ_FREQ->new();
+    my $dataset_freq=SEQ_FREQ->new();
     while (<MEME>){
         if (/MEME job (\d+)/){
             $job=$1;}
