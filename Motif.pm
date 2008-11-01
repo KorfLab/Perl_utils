@@ -1769,8 +1769,18 @@ sub _draw_motif{
             my $for_h=0;  #Shannon's Information Content
             my $rev_h=0;
             for (my $j=0;$j<=3;$j++){
-                $for_h+=-1*$ppm->[$i]->[$j]*(log($ppm->[$i]->[$j])/log(2));
-                $rev_h+=-1*$ppm->[$size-1-$i]->[3-$j]*(log($ppm->[$size-1-$i]->[3-$j])/log(2));
+                if ($ppm->[$i]->[$j] == 0 ){
+                    next;
+                }
+                else{
+                    $for_h+=-1*$ppm->[$i]->[$j]*(log($ppm->[$i]->[$j])/log(2));}
+                
+                if($ppm->[$size-1-$i]->[3-$j] == 0){
+                    next;
+                }
+                else {  
+                    $rev_h+=-1*$ppm->[$size-1-$i]->[3-$j]*(log($ppm->[$size-1-$i]->[3-$j])/log(2));
+                }
             }
 
             #Total height of all letters
@@ -2682,7 +2692,7 @@ sub meme_import {
                         $motif->{POSITION_SCORING_MATRIX}=\@psm;
 
                         #create pseudo_counted position probability matrix
-                        $motif->{POSITION_PROBABILITY_MATRIX}=_create_ppm(\@psm);
+                        $motif->{POSITION_PROBABILITY_MATRIX}=\@ppm;
                         }
 
                     #import regular expressions for motif
