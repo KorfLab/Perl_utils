@@ -2585,6 +2585,7 @@ sub meme_import {
     my $job;
     my @sequences;
     my $commandline;
+    my $e_value;
     my $background_freq=SEQ_FREQ->new();
     my $dataset_freq=SEQ_FREQ->new();
     while (<MEME>){
@@ -2643,6 +2644,24 @@ sub meme_import {
         elsif (/\s+Motif (\d+) Description/){
                 my $motif=Motif->new();
                 $motif->{ACCESSION} = "Motif $1";
+                $e_value=~m/(\S+([-+])(\d+))/;
+                if ($2 ne "-"){
+                    REPEAT:
+                    print $motif->{ACCESSION} . " has an E-value of $1\nDo you still want to import the motif? (Y/N)";
+                    my $answer=<>;
+                    chomp $answer;
+                    if ($answer eq "N" || $answer eq "n"){
+                        next;
+                    }
+                    elsif($answer eq "Y" || $answer eq "y"){
+                        goto IMPORT;
+                    }
+                    else {
+                        goto REPEAT;
+                    }
+                }
+                
+                IMPORT:
                 $motif->{VERSION}= $version;
                 $motif->{DATAFILE}=$datafile;
                 $motif->{COMMAND_LINE}=$commandline;
@@ -2715,6 +2734,9 @@ sub meme_import {
                 #import into Motifset;
                 push @{$self->{MOTIFS}},$motif;
             }
+        elsif(/.*E-value\s=\s(\S+[-+]\d+)/){
+            $e_value=$1;;        
+        }
         else {
             next;}
     }
