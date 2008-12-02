@@ -147,7 +147,8 @@ sub new{
                  "WEEDER"=>undef,
                  "NESTEDMICA"=>undef,
                  "MEME"=>undef,
-                 "JASPAR"=>undef);
+                 "JASPAR"=>undef,
+                 "SIMPLE"=>undef);
     my $class = shift;
     my %arg=(%default,@_);
     my $self = bless {}, $class;
@@ -167,6 +168,7 @@ sub new{
                                 ($motif_finder eq "NESTEDMICA") ? nestedmica_import($self,$file):
                                 ($motif_finder eq "MEME") ? meme_import($self,$file):
                                 ($motif_finder eq "JASPAR") ? jaspar_import($self,%$file):
+                                ($motif_finder eq "SIMPLE") ? simple_import($self,$file):
                                 die "Unknown import parameters $motif_finder and $file";
                     }
                 }
@@ -176,6 +178,7 @@ sub new{
                             ($motif_finder eq "NESTEDMICA") ? nestedmica_import($self,$arg{$motif_finder}):
                             ($motif_finder eq "MEME") ? meme_import($self,$arg{$motif_finder}):
                             ($motif_finder eq "JASPAR") ? jaspar_import($self,%{$arg{$motif_finder}}):
+                            ($motif_finder eq "SIMPLE") ? simple_import($self,%{$arg{$motif_finder}}):
                             die "Unknown import parameters $motif_finder and $arg{$motif_finder}";
                 }
             }
@@ -2862,6 +2865,55 @@ sub weeder_import {
     close WEEDER;
     return $self;
 }
+
+
+
+sub simple_import{
+    my ($self,$filename)=@_;
+    open SIMPLE, "< $filename" || die "Couldn't Open $filename:$!\n;";
+
+    #delete DISTANCE_SCORE
+    if (exists $self->{Distance_Score}){
+        delete $self->{Distance_Score};
+    }
+
+    my $i=0;
+    
+    my $motif=Motif->new();
+    while (<SIMPLE>){
+        NEW:
+        #starting of individual motif
+        if (/^>(.*)/){
+            if (defined $motif->{ACCESSION}){
+                push @{$self->{MOTIFS}},$motif;
+                $motif=Motif->new();
+            }
+            $motif->{ACCESSION}=$1;
+            $motif->{FILENAME}=$filename;
+        }
+        elsif(/^([0-9.]+\s)+/){
+                    chomp;
+                    my @position=split(/\t/,$_);
+                    push @{$motif->{POSITION_PROBABILITY_MATRIX}},\@position;
+        }
+        else {
+            push @{$self->{MOTIFS}},$motif;
+            $motif=Motif->new();
+        }
+    }
+    
+    if (defined $motif->{ACCESSION}){
+                push @{$self->{MOTIFS}},$motif;
+                $motif=Motif->new();
+    }
+    
+    
+    close SIMPLE;
+    return $self;
+}
+
+
+
 
 ##################################################################################################
 #
