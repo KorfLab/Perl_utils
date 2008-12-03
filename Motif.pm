@@ -1622,7 +1622,7 @@ sub splitstree{
     my $score_method=$self->{DISTANCE_SCORE}->{SCORING_METHOD};
     my $num=scalar @$Labels;
 
-    open NEXUS ,">$filename.nex"  || die "Cannot open file for writing $!";
+    open NEXUS ,">$filename.nex"  or die "Cannot open file for writing $!";
     print "FILENAME: $filename.nex\n";
     print NEXUS  "#NEXUS\nBEGIN taxa;\n";
     print NEXUS "\tDIMENSIONS ntax=" . $num . ";\n";
@@ -1990,13 +1990,13 @@ sub html_summary{
 
     #Output Summary.html
     push @summary_HTML_body, ("\<\/body\>\n","\<\/html\>\n");
-    open SUM_HTML, "> $directory/Summary.html";
+    open SUM_HTML, "> $directory/Summary.html" or die "Couldn't open Summary.html file for writing: $!\n";
     print SUM_HTML join("\n",@summary_HTML_head);
     print SUM_HTML join("\n",@summary_HTML_body);
     $|=1;
     close (SUM_HTML);
     #Output Index.html
-    open INDEX, "> $directory/index.html";
+    open INDEX, "> $directory/index.html" or die "Couldn't open index.html for writing: $!\n";
     print INDEX join("\n",@index_HTML);
      $|=1;
     close (INDEX);
@@ -2007,7 +2007,7 @@ sub html_summary{
         my $Target="Motif$i";
         my @Target=@menu_HTML[0..29];
         $Target[27]=~s/\{\$\S+\}/$Target\n/;
-        open MENU, "> $directory/$name";
+        open MENU, "> $directory/$name" or die "Couldn't open file for writing:$!\n";
         print MENU join("\n",@Target);
         print MENU join("\n",@menu_HTML_links);
         print MENU join("\n",@menu_HTML[30..34]);
@@ -2125,7 +2125,7 @@ sub transfac_import {
                             "OR" => "ORGANISM",
                             "AS" => "OLD_ACCESSION");
 
-    open (TRANSFAC, "< $filename") || die "Couldn't Open $filename:$!\n;";
+    open (TRANSFAC, "< $filename") or die "Couldn't open $filename:$!\n;";
 
 
     my $version;    #contains Transfac version information
@@ -2270,8 +2270,8 @@ sub jaspar_import{
         delete $self->{Distance_Score};
     }
 
-    open ANNOTATION, "< $arg{ANNOTATION}" || die "Couldn't open $arg{ANNOTATION}:$!\n";
-    open PFM, "< $arg{DATA}" || die "Couldn't open $arg{DATA}:$!\n";
+    open ANNOTATION, "< $arg{ANNOTATION}" or die "Couldn't open $arg{ANNOTATION}:$!\n";
+    open PFM, "< $arg{DATA}" or die "Couldn't open $arg{DATA}:$!\n";
     #open INFO, "< $arg{INFO}" || die "Couldn't open $arg{INFO}:$!\n";
 
     my $motif;
@@ -2475,7 +2475,7 @@ sub nestedmica_import {
     #10my $threshold_header=0;
     
     my $motif=Motif->new();
-    open (NESTED, "<$filename") || die "Couldn't Open $filename:$!\n;";
+    open (NESTED, "<$filename") or die "Couldn't open $filename:$!\n;";
     while (<NESTED>){
         if (/\<motifset/){
             $headers[0]++;
@@ -2576,7 +2576,7 @@ sub nestedmica_import {
 #
 sub meme_import {
     my ($self,$filename)=@_;
-    open (MEME, "< $filename") || die "Couldn't Open $filename:$!\n;";
+    open (MEME, "< $filename") or die "Couldn't Open $filename:$!\n;";
 
     if (exists $self->{Distance_Score}){
         delete $self->{Distance_Score};
@@ -2763,7 +2763,7 @@ sub meme_import {
 #
 sub weeder_import {
     my ($self,$filename)=@_;
-    open (WEEDER, "< $filename") || die "Couldn't Open $filename:$!\n;";
+    open (WEEDER, "< $filename") or die "Couldn't open $filename:$!\n;";
 
     #delete DISTANCE_SCORE
     if (exists $self->{Distance_Score}){
@@ -2870,7 +2870,7 @@ sub weeder_import {
 
 sub simple_import{
     my ($self,$filename)=@_;
-    open SIMPLE, "< $filename" || die "Couldn't Open $filename:$!\n;";
+    open SIMPLE, "< $filename" or die "Couldn't Open $filename:$!\n;";
 
     #delete DISTANCE_SCORE
     if (exists $self->{Distance_Score}){
@@ -2968,7 +2968,7 @@ sub transfac_export{
                   "REFERENCE_TITLE"=>"RT",
                   "REFERENCE_DATA"=>"RL");
     if (defined $filename){
-        open OUT, "> $filename";
+        open OUT, "> $filename" or die "Couldn't open $filename for writing\n$!";
         select (OUT);}
     foreach my $Motif (keys %$self){
         if (ref $self->{$Motif} eq "Motif"){
@@ -3018,7 +3018,7 @@ sub nestedmica_export{
     my ($self,$filename)=@_;
     my @template=@{main::nm_template()};
     
-    open (XMS, ">$filename.xms") || die "Couldn't open file \n";
+    open (XMS, ">$filename.xms") or die "Couldn't open file \n";
     
     print XMS "$template[0]\n"; #print header for xms file
     foreach my $motif (@{$self->{MOTIFS}}){
@@ -3758,8 +3758,8 @@ sub mask_motifs {
     #    die "Strand selection doesn't match:  FORWARD, REVERSE, OR BOTH : $!\n";
     #}
     
-    open SEQ, "<$arg{SEQUENCES}";
-    open OUTPUT, "> $arg{OUTPUT}";
+    open SEQ, "<$arg{SEQUENCES}" or die "Couldn't open $arg{SEQUENCES}:$!\n";
+    open OUTPUT, "> $arg{OUTPUT}" or die "Couldn't open $arg{OUTPUT} for writing:$!\n";
     my $fasta=new FAlite(\*SEQ);
     while (my $entry=$fasta->nextEntry){
         my $sequence=$entry->seq;
@@ -3865,7 +3865,7 @@ sub scan_sequence {
     #elsif (($arg{STRAND}  "FORWARD")||($arg{STRAND} ne "REVERSE")||($arg{STRAND} ne "BOTH")){
     #    die "Strand selection doesn't match:  FORWARD, REVERSE, OR BOTH : $!\n";
     #}
-    open SEQ, "<$arg{SEQUENCES}";
+    open SEQ, "<$arg{SEQUENCES}" or die "Couldn't open file $arg{SEQUENCES}: $!\n";
     
     my $fasta=new FAlite(\*SEQ);
     while (my $entry=$fasta->nextEntry){
@@ -4049,7 +4049,7 @@ sub R_seq_score {
     my ($motifset,$sequence,$filename,$seq_freq)=@_;
     my $report=_seq_score($motifset,$sequence,$seq_freq);
 
-    open RFILE, "> $filename.csv";
+    open RFILE, "> $filename.csv" or die "Couldn't open $filename.csv for writing:$!\n";
     my $header="POSITION";
     my @data;
     my $size=length($sequence);
