@@ -2897,8 +2897,7 @@ sub simple_import{
                     push @{$motif->{POSITION_PROBABILITY_MATRIX}},\@position;
         }
         else {
-            push @{$self->{MOTIFS}},$motif;
-            $motif=Motif->new();
+            next;
         }
     }
     
