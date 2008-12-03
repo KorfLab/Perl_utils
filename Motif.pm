@@ -1853,8 +1853,8 @@ sub _draw_motif{
 
 
 
-    open (FSVG, "> $directory/$filename.svg");
-    open (RSVG, "> $directory/$rev_filename.svg");
+    open FSVG, "> $directory/$filename.svg" or die "Couldn't open file named $filename\n$!";
+    open RSVG, "> $directory/$rev_filename.svg" or die "Couldn't open file named $filename\n$!";
     print FSVG @forward_svg;
     print FSVG @x_axis_svg;
     print FSVG ${$arg{template}}[19];
@@ -2883,7 +2883,7 @@ sub simple_import{
     while (<SIMPLE>){
         NEW:
         #starting of individual motif
-        if (/^>(.*)/){
+        if (/^>([A-Za-z0-9.-_]+)\s(.*)/){
             if (defined $motif->{ACCESSION}){
                 push @{$self->{MOTIFS}},$motif;
                 $motif=Motif->new();
