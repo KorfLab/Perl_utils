@@ -145,7 +145,7 @@ sub reverse_ppm{
 		return \@reverse;
 	}
 	else {
-		return undef;
+		return 0;
 	}
 }
 
@@ -190,9 +190,10 @@ sub accession{
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------
 package Motifset;
+use strict;
+use warnings;
 require Storable;
 require Cwd;
-my $last_motif;
 
 ################################################################################
 #
@@ -354,17 +355,12 @@ sub query{
     return $self;
 }
 
-
-sub reset_last_motif{
-	$Motifset::last_motif=0;
-}
-
 sub first_motif{
 	my ($self)=@_;
 	if (exists $self->{MOTIFS}){
 		my $size=scalar @{$self->{MOTIFS}};
 		if ($size>=1){
-			return $self->{MOTIFS}->[$Motifset::last_motif];
+			return $self->{MOTIFS}->[0];
 		}
 		else {
 			return undef;
@@ -395,55 +391,33 @@ sub last_motif{
 }
 
 #Test function
-sub next_motif{
-	my ($self)=@_;
+sub motif{
+	my ($self,$number)=@_;
 	if (exists $self->{MOTIFS}){
 		my $size=scalar @{$self->{MOTIFS}};
-		if ($Motifset::last_motif==undef){
-			$Motifset::last_motif=0;
 
-		}
-		else {
-			$Motifset::last_motif++;
-		}
 
-		if ($size<=$Motifset::last_motif){
-			$Motifset::last_motif=0;
+		if ($size<=$number){
 			return undef;
 		}
 		else{
-			return $self->{MOTIFS}->[$Motifset::last_motif];
+			return $self->{MOTIFS}->[$number];
 		}
 	}
 	else {
 		return undef;
 	}
-
 }
 
-#Test function
-sub previous_motif{
+sub size{
 	my ($self)=@_;
 	if (exists $self->{MOTIFS}){
-		my $size=scalar $self->{MOTIFS};
-		if (undef $Motifset::last_motif || $Motifset::last_motif==0){
-			return undef;
-		}
-		else {
-			$Motifset::last_motif--;
-		}
-
-		if ($size>=$last_motif){
-			$Motifset::last_motif=0;
-			return undef;
-		}
-		else{
-			return $self->{MOTIFS}->[$last_motif];
-		}
+		return scalar @{$self->{MOTIFS}};
 	}
 	else {
-		return undef;
+		return 0;
 	}
+
 }
 
 
