@@ -4,7 +4,6 @@ use Storable;
 use FAlite;
 #FIX: SCORE SEQUENCE FUNCTION
 #FIX:  HTML REPORT
-#TODO:  IMPLEMENT SVG
 #TODO:  IMPLEMENT R
 package Motif;
 
@@ -14,7 +13,7 @@ package Motif;
 #
 #   Description:  Create a new Motif class
 #
-# 
+#
 #
 
 sub new{
@@ -123,10 +122,77 @@ sub _generate_Consensus{
     return @Consensus;
 }
 
+#Test Function
+sub ppm {
+	my ($self)=@_;
+	if (exists $self->{POSITION_PROBABILITY_MATRIX}){
+		return $self->{POSITION_PROBABILITY_MATRIX};
+	}
+	else {
+		return undef;
+	}
+}
+
+sub reverse_ppm{
+	my ($self)=@_;
+	my @reverse;
+	if (exists $self->{POSITION_PROBABILITY_MATRIX}){
+		@reverse=reverse(@{$self->{POSITION_PROBABILITY_MATRIX}});
+		for(my $i=0;$i<scalar @reverse;$i++){
+			my @array=reverse @{$reverse[$i]};
+			$reverse[$i]=\@array;
+		}
+		return \@reverse;
+	}
+	else {
+		return undef;
+	}
+}
+
+sub reverse_psm{
+	my ($self)=@_;
+	my @reverse;
+	if (exists $self->{POSITION_SCORING_MATRIX}){
+		@reverse=reverse(@{$self->{POSITION_SCORING_MATRIX}});
+		for(my $i=0;$i<scalar @reverse;$i++){
+			my @array=reverse @{$reverse[$i]};
+			$reverse[$i]=\@array;
+		}
+		return \@reverse;
+	}
+	else {
+		return undef;
+	}
+}
+
+#Test Function
+sub psm {
+	my ($self)=@_;
+	if (exists $self->{POSITION_SCORING_MATRIX}){
+		return $self->{POSITION_SCORING_MATRIX};
+	}
+	else {
+		return undef;
+	}
+}
+
+#Test Function
+sub accession{
+	my ($self)=@_;
+	if (exists $self->{ACCESSION}){
+		return $self->{ACCESSION};
+	}
+	else {
+		return undef;
+	}
+}
+
+
 #----------------------------------------------------------------------------------------------------------------------------------------------------
 package Motifset;
 require Storable;
 require Cwd;
+my $last_motif;
 
 ################################################################################
 #
@@ -188,6 +254,8 @@ sub new{
 }
 
 
+
+
 ################################################################################
 #
 #   query()
@@ -242,7 +310,7 @@ sub query{
     if (!defined $category){
         $category="ANY"
     }
-    
+
     foreach my $motif (@{$self->{MOTIFS}}){
         $motif_accessions{$motif->{ACCESSION}}=1;
     }
@@ -287,6 +355,96 @@ sub query{
 }
 
 
+sub reset_last_motif{
+	$Motifset::last_motif=0;
+}
+
+sub first_motif{
+	my ($self)=@_;
+	if (exists $self->{MOTIFS}){
+		my $size=scalar @{$self->{MOTIFS}};
+		if ($size>=1){
+			return $self->{MOTIFS}->[$Motifset::last_motif];
+		}
+		else {
+			return undef;
+		}
+	}
+	else {
+		return undef;
+	}
+
+
+}
+
+sub last_motif{
+	my ($self)=@_;
+	if (exists $self->{MOTIFS}){
+		my $size=scalar @{$self->{MOTIFS}};
+		if ($size>=1){
+			return $self->{MOTIFS}->[$size-1];
+		}
+		else {
+			return undef;
+		}
+	}
+	else {
+		return undef;
+	}
+
+}
+
+#Test function
+sub next_motif{
+	my ($self)=@_;
+	if (exists $self->{MOTIFS}){
+		my $size=scalar @{$self->{MOTIFS}};
+		if ($Motifset::last_motif==undef){
+			$Motifset::last_motif=0;
+
+		}
+		else {
+			$Motifset::last_motif++;
+		}
+
+		if ($size<=$Motifset::last_motif){
+			$Motifset::last_motif=0;
+			return undef;
+		}
+		else{
+			return $self->{MOTIFS}->[$Motifset::last_motif];
+		}
+	}
+	else {
+		return undef;
+	}
+
+}
+
+#Test function
+sub previous_motif{
+	my ($self)=@_;
+	if (exists $self->{MOTIFS}){
+		my $size=scalar $self->{MOTIFS};
+		if (undef $Motifset::last_motif || $Motifset::last_motif==0){
+			return undef;
+		}
+		else {
+			$Motifset::last_motif--;
+		}
+
+		if ($size>=$last_motif){
+			$Motifset::last_motif=0;
+			return undef;
+		}
+		else{
+			return $self->{MOTIFS}->[$last_motif];
+		}
+	}
+	else {
+		return undef;
+	}
+}
 
 
 ############################ Not finished
@@ -381,7 +539,7 @@ sub print_summary{
 #
 #
 #   Description:  delete_Motif: deletes a Motif from the Motifset
-#  
+#
 sub delete{
     my ($self,$delete)=@_;
 
@@ -432,7 +590,7 @@ sub delete{
 #   combine
 #
 #   Description: takes 2 Motifsets and combines them into one Motifset
-#  
+#
 sub combine{
     my ($self1,$self2)=@_;
 
@@ -482,7 +640,7 @@ sub import{
 #   Description:    Create subset of Motifset; Inputs: reference to array or
 #                   user queried input.
 #
-#   
+#
 sub subset{
     my ($self,$motifset,$subset)=@_;
     if (!defined $motifset) {
@@ -507,7 +665,7 @@ sub subset{
         print "Enter the Motifs that you would like to create subset( Example: 1,2,3,4):";
         my $input=<STDIN>;
         chomp $input;
-        @subset=split /,/,$input;
+        @subset=split /,/ ,$input;
         @subset=sort { $a<=>$b } @subset;
     }
 
@@ -1648,6 +1806,8 @@ sub splitstree{
 }
 
 
+
+#Fix incorrect reverse logo drawing
 ################################
 #
 #   draw_motif
@@ -1667,6 +1827,13 @@ sub _draw_motif{
 
     my %arg=(%defaults,@_);
     my $ppm=$arg{ppm};
+    my @forward=@{$ppm};
+    my @reverse=reverse @forward;
+    for(my $i=0;$i<scalar @reverse;$i++){
+    	my @array=reverse @{$reverse[$i]};
+		$reverse[$i]=\@array;
+    }
+
     my $size=scalar @$ppm;  #size of motif
     my $directory=(defined $arg{directory}) ? $arg{directory}: getcwd();
     my $filename=(defined $arg{filename}) ? $arg{filename}:  die "filename not defined";
@@ -1713,26 +1880,26 @@ sub _draw_motif{
             for (my $j=0;$j<=3;$j++){
                 my $color=${$arg{color}}[$j];
                 my $letter=$arg{letter}->[$j];
-                if ($ppm->[$i]->[$j]>=0.01){
+                if ($forward[$i][$j]>=0.01){
                     my $for_line=${$arg{template}}[3];
-                    $for_line=~s/\$transformation/$ppm->[$i]->[$j]/;
+                    $for_line=~s/\$transformation/$forward[$i][$j]/;
                     $for_line=~s/\$horizontal_position/$horizontal_position/;
                     $for_line=~s/\$vertical_position/$for_vertical_position/;
                     $for_line=~s/\$letter_color/$color/;
                     $for_line=~s/\$letter/$letter/;
                     push @forward_svg, $for_line;
-                    $for_vertical_position-=($ppm->[$i]->[$j]*88);
+                    $for_vertical_position-=($forward[$i][$j]*88);
                 }
 
-                if ($ppm->[$size-1-$i]->[3-$j]>=0.01){
+                if ($reverse[$i]->[$j]>=0.01){
                     my $rev_line=${$arg{template}}[3];
-                    $rev_line=~s/\$transformation/$ppm->[$size-1-$i]->[3-$j]/;
+                    $rev_line=~s/\$transformation/$reverse[$i][$j]/;
                     $rev_line=~s/\$horizontal_position/$horizontal_position/;
                     $rev_line=~s/\$vertical_position/$rev_vertical_position/;
                     $rev_line=~s/\$letter_color/$color/;
                     $rev_line=~s/\$letter/$letter/;
                     push @reverse_svg, $rev_line;
-                    $rev_vertical_position-=($ppm->[$size-1-$i]->[3-$j]*88);
+                    $rev_vertical_position-=($reverse[$i]->[$j]*88);
                 }
             }
             $ horizontal_position+=80;
@@ -1772,17 +1939,12 @@ sub _draw_motif{
             my $for_h=0;  #Shannon's Information Content
             my $rev_h=0;
             for (my $j=0;$j<=3;$j++){
-                if ($ppm->[$i]->[$j] == 0 ){
-                    next;
+                if ($forward[$i][$j] != 0 ){
+                    $for_h+=-1*$forward[$i][$j]*(log($forward[$i][$j])/log(2));
                 }
-                else{
-                    $for_h+=-1*$ppm->[$i]->[$j]*(log($ppm->[$i]->[$j])/log(2));}
-                
-                if($ppm->[$size-1-$i]->[3-$j] == 0){
-                    next;
-                }
-                else {  
-                    $rev_h+=-1*$ppm->[$size-1-$i]->[3-$j]*(log($ppm->[$size-1-$i]->[3-$j])/log(2));
+
+                if($reverse[$i][$j] != 0){
+                    $rev_h+=-1*$reverse[$i][$j]*(log($reverse[$i][$j])/log(2));
                 }
             }
 
@@ -1793,31 +1955,31 @@ sub _draw_motif{
 			# will store heights in order to put them in size order so biggest nucleotide is always on top
 			my %forward_heights;
 			my %reverse_heights;
-			
+
 			for (my $j=0;$j<=3;$j++){
-	                if ($ppm->[$i]->[$j]>=0.01){
+	                if ($forward[$i][$j]>=0.01){
 	                    my $for_line=${$arg{template}}[3];
-	                    my $height=$ppm->[$i]->[$j]*$for_total_height/2;
+	                    my $height=$forward[$i][$j]*$for_total_height/2;
 						$forward_heights{$j}=$height;
 	                }
 
-	                if ($ppm->[$size-1-$i]->[3-$j]>=0.01){
-	                    my $height=$ppm->[$size-1-$i]->[3-$j]*$rev_total_height/2;
+	                if ($reverse[$i][$j]>=0.01){
+	                    my $height=$reverse[$i][$j]*$rev_total_height/2;
 						$reverse_heights{$j}=$height;
 	                }
-	         }			
-				
-	
-	
-			# loop through each nucleotide, starting with the lowest height 
+	         }
+
+
+
+			# loop through each nucleotide, starting with the lowest height
 			# first do forward motif...
-			
+
 			foreach my $j (sort {$forward_heights{$a} <=> $forward_heights{$b}}(keys %forward_heights)){
                 my $color=${$arg{color}}[$j];
                 my $letter=$arg{letter}->[$j];
-                if ($ppm->[$i]->[$j]>=0.01){
+                if ($forward[$i][$j]>=0.01){
                     my $for_line=${$arg{template}}[3];
-                    my $height=$ppm->[$i]->[$j]*$for_total_height/2;
+                    my $height=$forward[$i][$j]*$for_total_height/2;
                     $for_line=~s/\$transformation/$height/;
                     $for_line=~s/\$horizontal_position/$horizontal_position/;
                     $for_line=~s/\$vertical_position/$for_vertical_position/;
@@ -1827,14 +1989,14 @@ sub _draw_motif{
                     $for_vertical_position-=($height*88);
                 }
 			}
-			
+
 			#...then reverse strand motif
 			foreach my $j (sort {$reverse_heights{$a} <=> $reverse_heights{$b}}(keys %reverse_heights)){
 				my $color=${$arg{color}}[$j];
 			    my $letter=$arg{letter}->[$j];
-                if ($ppm->[$size-1-$i]->[3-$j]>=0.01){
+                if ($reverse[$i][$j]>=0.01){
                     my $rev_line=${$arg{template}}[3];
-                    my $height=$ppm->[$size-1-$i]->[3-$j]*$rev_total_height/2;
+                    my $height=$reverse[$i][$j]*$rev_total_height/2;
                     $rev_line=~s/\$transformation/$height/;
                     $rev_line=~s/\$horizontal_position/$horizontal_position/;
                     $rev_line=~s/\$vertical_position/$rev_vertical_position/;
@@ -2393,28 +2555,28 @@ sub nestedmica_import {
     my ($self,$filename)=@_;
     my $input_size=0;
     my $output_size=0;
-    
+
     # # of motifs in self
     if (exists $self->{MOTIFS}){
         $input_size=$#{$self->{MOTIFS}} + 1;
     }
-    
+
     #if Motifset has a Distance_Score matrix ; delete it.
     if (exists $self->{Distance_Score}){
         delete $self->{Distance_Score};
     }
-    
-    
+
+
     my $check_ppm=sub {
         my ($array,$name,$file,$column)=@_;
         my $sum=0;
         my $abs_sum=0;
-        
+
         for (my $i=0;$i<4;$i++){
             $sum+=$array->[$i];
             $abs_sum+=abs($array->[$i]);
         }
-        
+
         #if absolute value is close to one then change the sign
         if (abs(1-$abs_sum)<0.0001){
             for (my $i=0;$i<4;$i++){
@@ -2435,11 +2597,11 @@ sub nestedmica_import {
                     print "Warning: Negative value of $old_value found in Motif:$name while processing File:$filename at column position: $column.  Value changed to 0.0001\n\n";
                     #correct sum value
                     $sum=$sum-$old_value+0.0001;
-                }    
+                }
             }
         }
-        
-        
+
+
         if (abs(1-$sum)>0.0001){
             my $difference=1-$sum;
             my @old_array=@$array;
@@ -2458,8 +2620,8 @@ sub nestedmica_import {
         }
         return $array;
     };
-    
-    
+
+
     # Control variables to make sure imports were done correctly
     my @headers=(0,0,0,0,0,0,0,0,0,0,0);
     #0my $top_motifset_header=0;
@@ -2473,7 +2635,7 @@ sub nestedmica_import {
     #8my $bottom_column_header=0;
     #9my $weights_header=0;
     #10my $threshold_header=0;
-    
+
     my $motif=Motif->new();
     open (NESTED, "<$filename") or die "Couldn't open $filename:$!\n;";
     while (<NESTED>){
@@ -2526,10 +2688,10 @@ sub nestedmica_import {
         elsif (/\/motifset/){
             $headers[1]++;
         }
-        
+
     }
-    
-    
+
+
     #check for import errors
     my $import_errors=undef;
     if ($headers[0]!=$headers[1])   { $import_errors.="Problem with motifset tags\n";}
@@ -2539,12 +2701,12 @@ sub nestedmica_import {
     if ($headers[7]!=$headers[8]){$import_errors.="Problem with column tags\n";}
     if ($headers[9]/4!=$headers[7]){$import_errors.="Problem with weight tags\n";}
     if ($headers[10]!=$headers[5]){$import_errors.="Problem with threshold tags\n";}
-    
+
     if (defined $import_errors){
         print "Formatting errors found for $filename, not all motifs imported or imported improperly\n\n";
         print $import_errors;
     }
-    
+
     if (exists $self->{MOTIFS}){
          $output_size=$#{$self->{MOTIFS}} + 1;
     }
@@ -2552,8 +2714,8 @@ sub nestedmica_import {
         print "Error: No motifs were imported from $filename\n";
     }
     else {print $output_size-$input_size . " motifs imported from $filename.   Number of motifs in motifset is $output_size\n";}
-    
-    
+
+
     close NESTED;
     return $self;
 }
@@ -2663,7 +2825,7 @@ sub meme_import {
                         goto REPEAT;
                     }
                 }
-                
+
                 IMPORT:
                 $motif->{VERSION}= $version;
                 $motif->{DATAFILE}=$datafile;
@@ -2738,7 +2900,7 @@ sub meme_import {
                 push @{$self->{MOTIFS}},$motif;
             }
         elsif(/.*E-value\s=\s(\S+[-+]\d+)/){
-            $e_value=$1;;        
+            $e_value=$1;;
         }
         else {
             next;}
@@ -2878,7 +3040,7 @@ sub simple_import{
     }
 
     my $i=0;
-    
+
     my $motif=Motif->new();
     while (<SIMPLE>){
         NEW:
@@ -2900,13 +3062,13 @@ sub simple_import{
             next;
         }
     }
-    
+
     if (defined $motif->{ACCESSION}){
                 push @{$self->{MOTIFS}},$motif;
                 $motif=Motif->new();
     }
-    
-    
+
+
     close SIMPLE;
     return $self;
 }
@@ -3017,18 +3179,18 @@ sub transfac_export{
 sub nestedmica_export{
     my ($self,$filename)=@_;
     my @template=@{main::nm_template()};
-    
+
     open (XMS, ">$filename.xms") or die "Couldn't open file \n";
-    
+
     print XMS "$template[0]\n"; #print header for xms file
     foreach my $motif (@{$self->{MOTIFS}}){
         my $name=$template[6];
         $name=~s/\$motif/$motif->{ACCESSION}/g;
-        
+
         my $columns=scalar @{$motif->{POSITION_PROBABILITY_MATRIX}};
         my $columns_output=$template[7];
         $columns_output=~s/\$columns/$columns/g;
-        
+
         print XMS "$template[5]\n";  #print start of motif
         print XMS "$name\n";
         print XMS "$columns_output\n";
@@ -3047,7 +3209,7 @@ sub nestedmica_export{
             print XMS "$column_header\n$a\n$c\n$g\n$t\n$template[13]\n";
             $i++;
         }
-        
+
         my $threshold=$template[15];
         if (defined $motif->{THRESHOLD}){
             $threshold=~s/\$threshold/$motif->{THRESHOLD}/g;
@@ -3055,11 +3217,11 @@ sub nestedmica_export{
         else{
             $threshold=~s/\$threshold/0/g;
         }
-        
+
         print XMS "$template[14]\n$threshold\n$template[16]\n";
     }
     print XMS "$template[17]\n";
-    
+
     $|=1;
     close XMS;
 
@@ -3089,37 +3251,37 @@ sub randomize_motifset {
                  "VERBOSE"=>undef);
     my $new=shift;
     my %arg=(%default,@_);
-    
+
     #check to make sure that MOTIFSET is defined and is a Motifset object
     if (!defined $arg{MOTIFSET} || ref $arg{MOTIFSET} ne "Motifset"){
         die "MOTIFSET was not defined or not a Motifset object\n";
     }
-    
+
     #Check to make sure that the MOTIF_SELECTION is an array if it is defined
     if (defined $arg{MOTIF_SELECTION} && ref $arg{MOTIF_SELECTION} ne "ARRAY" ){
         die "MOTIF_SELECTION must be a reference to an array"
     }
-    
+
     my $old=$arg{MOTIFSET};
-    
+
     if (defined $new->{MOTIFS}){
         delete $new->{MOTIFS}
     }
-    
+
     if (defined $arg{VERBOSE}){
         printf "Motif\t\t\t\tNew Order\n";
         print "--------------------------------------------------\n"
     }
-    
+
     if ((defined $arg{MOTIF_SELECTION}) && (ref $arg{MOTIF_SELECTION} eq "ARRAY")){
         foreach my $motif (@{$arg{MOTIF_SELECTION}}){
-            
+
             #Check to see if $motif is valid selection from Motifset
             if (!exists $old->{MOTIFS}->[$motif]){
                 my $size=scalar @{$old->{MOTIFS}};
                 die "$motif is out of range.  There are only $size motifs in the motifset\n";
             }
-            
+
             my $accession=$old->{MOTIFS}->[$motif]->{ACCESSION};
             if (defined $arg{VERBOSE}){
                 printf "$accession\t\t";
@@ -3144,7 +3306,7 @@ sub randomize_motifset {
             push @{$new->{MOTIFS}},$new_motif;
         }
     }
-    
+
     return $new;
 }
 
@@ -3159,7 +3321,7 @@ sub randomize_motifset {
 #                  freqeuncy table for wordsizes.  SEQ_FREQUENCY is a hash, where HASH OF HASH.
 #                  Stored in format of {Wordsize}->{Word}->Count.  Example  {'3'}->{AAG} => 3
 #
-#   
+#
 
 package SEQ_FREQ;
 
@@ -3615,25 +3777,25 @@ sub randomize_pwm {
         die "Array parameter is not an array\n";
     }
 
-    
+
     my @position=(defined $verbose) ? (0..$#pwm) : undef;
-    
-    
+
+
     for ( my $i = $#pwm; $i > 0; --$i ) {
         my $j = int rand( $i + 1 );
         @pwm[ $i, $j ] = @pwm[ $j, $i ];
         if (defined $verbose){
             @position[ $i, $j ] = @position[$j,$i];
-        } 
+        }
     }
-    
+
     if (defined $verbose){
         print "@position\n";
     #if (main::_query(\@position,\@old_position)){
     #    die "Same matrix was output";
     #}
     }
-    
+
     return @pwm;
 }
 
@@ -3663,7 +3825,7 @@ sub randomize_pwm {
 #   FIX:  Automate with R function for graphing motif locations
 
 sub _seq_score {
-    #set defaults 
+    #set defaults
     my %default=("MOTIF"=>undef,
                  "SEQUENCE"=>undef,
                  "SCORING_METHOD"=>"BSO",
@@ -3671,7 +3833,7 @@ sub _seq_score {
                  "SEQ_FREQ"=>[0.25,0.25,0.25,0.25],
                  );
     my %arg=(%default,@_);
-    
+
     #determine that required variables are supplied
     if (ref $arg{MOTIF} ne "Motif"){
         die "No motif supplied :  $!\n";
@@ -3679,16 +3841,16 @@ sub _seq_score {
     elsif (!defined $arg{SEQUENCE}){
         die "No sequence supplied:  $!\n";
     }
-    
+
     #if passed valid seq_freqency use this for LL and IC else ignore
     if (ref $arg{SEQ_FREQ} eq "HASH"){
 
     }
-    
+
     my $seq_size=length $arg{SEQUENCE};  #sequence length
     my @motif=@{$arg{MOTIF}->{POSITION_PROBABILITY_MATRIX}};
     my @report;
-    
+
     for (my $i=0;$i<=$seq_size-((scalar @motif)-1);$i++){  #Foreach position along sequence generate a score for both forward Motif and reverse compliment Motif
         my $cumulative_score;
         for (my $j=0;$j<(scalar @motif);$j++){ #Define values and accumulate score foreach position of Motif
@@ -3698,7 +3860,7 @@ sub _seq_score {
                         (uc($letter) eq "C") ? ($motif[$j][1]):
                         (uc($letter) eq "G") ? ($motif[$j][2]):
                         ($motif[$j][3]);
-                        
+
             #start scoring sequence
             #3 different scoring methods  (LL-Log Likelihood, IC-Information Content, BSO- bits-Sub-optimal)
             if ($arg{SCORING_METHOD} eq "LL"){
@@ -3741,9 +3903,9 @@ sub mask_motifs {
                  "STRAND"=>"FORWARD",
                  "OUTPUT"=>undef
                  );
-    
+
     my %arg=(%default,@_);
-    
+
     if (ref $arg{MOTIFS} ne "Motifset"){
         die "mask_motifs function requires Motifset object: $!\n";
     }
@@ -3753,11 +3915,11 @@ sub mask_motifs {
     elsif (!defined $arg{OUTPUT}){
         die "mask_motifs function requires output filename: $!\n";
     }
-    #Fix 
+    #Fix
     #elsif (($arg{STRAND} ne "FORWARD")||($arg{STRAND} ne "REVERSE")||($arg{STRAND} ne "BOTH")){
     #    die "Strand selection doesn't match:  FORWARD, REVERSE, OR BOTH : $!\n";
     #}
-    
+
     open SEQ, "<$arg{SEQUENCES}" or die "Couldn't open $arg{SEQUENCES}:$!\n";
     open OUTPUT, "> $arg{OUTPUT}" or die "Couldn't open $arg{OUTPUT} for writing:$!\n";
     my $fasta=new FAlite(\*SEQ);
@@ -3771,7 +3933,7 @@ sub mask_motifs {
         if (($arg{STRAND} eq "REVERSE")||($arg{STRAND} eq "BOTH")){
             $rev_seq=reverse $sequence;
             $rev_seq=~tr/ACGTacgt/TGCAtgca/;
-        }   
+        }
 
 
         my $match_function= sub {
@@ -3782,7 +3944,7 @@ sub mask_motifs {
                                    "SCORING_METHOD"=>$scoring_method,
                                    "THRESHOLD"=>$threshold,
                                    "SEQ_FREQ"=>$seq_freq);
-            
+
             #Corrects the coordinate system for reverse strand
             if ($strand eq "REVERSE"){
                 my $seq_size=(length $sequence);
@@ -3812,10 +3974,10 @@ sub mask_motifs {
                 push @all_matches,@matches;
             }
         }
-        
+
         #Consolidate matches (if there are any overlapping borders of motifs), also for next step from 3' end to 5' end deletions
         @all_matches=_organize_masking_regions(\@all_matches);
-        
+
         #delete sequences falling within borders
         my $new_sequence=$sequence;
         foreach my $region (@all_matches){
@@ -3852,9 +4014,9 @@ sub scan_sequence {
                  "SEQ_FREQ"=>[0.25,0.25,0.25,0.25],
                  "STRAND"=>"FORWARD"
                  );
-    
+
     my %arg=(%default,@_);
-    
+
     if (ref $arg{MOTIFS} ne "Motifset"){
         die "mask_motifs function requires Motifset object: $!\n";
     }
@@ -3866,7 +4028,7 @@ sub scan_sequence {
     #    die "Strand selection doesn't match:  FORWARD, REVERSE, OR BOTH : $!\n";
     #}
     open SEQ, "<$arg{SEQUENCES}" or die "Couldn't open file $arg{SEQUENCES}: $!\n";
-    
+
     my $fasta=new FAlite(\*SEQ);
     while (my $entry=$fasta->nextEntry){
         my $sequence=$entry->seq;
@@ -3877,7 +4039,7 @@ sub scan_sequence {
         if (($arg{STRAND} eq "REVERSE")||($arg{STRAND} eq "BOTH")){
             $rev_seq=reverse $sequence;
             $rev_seq=~tr/ACGTacgt/TGCAtgca/;
-        }   
+        }
 
 
         my $match_function= sub {
@@ -3888,7 +4050,7 @@ sub scan_sequence {
                                    "SCORING_METHOD"=>$scoring_method,
                                    "THRESHOLD"=>$threshold,
                                    "SEQ_FREQ"=>$seq_freq);
-            
+
             #Corrects the coordinate system for reverse strand
             if ($strand eq "REVERSE"){
                 my $seq_size=(length $sequence);
@@ -3904,10 +4066,10 @@ sub scan_sequence {
                             push @array, "+";
                             $_=\@array;} @match)
             }
-            
+
             return @match;
         };
-        
+
         my $print_report=sub{
             my ($arrays, $motif)=@_;
             print "Results for $motif:\n";
@@ -3919,11 +4081,11 @@ sub scan_sequence {
             else{
                 foreach my $match (@$arrays){
                     printf "%-10d%-10d%-10s%-8.2f\n",$match->[0]+1,$match->[1],$match->[3],$match->[2];
-                }   
+                }
             }
         };
-        
-        
+
+
         #Find motif matches for given threshold for all motifs supplied
         foreach my $motif (@{$arg{MOTIFS}->{MOTIFS}}){
             my @matches;
@@ -3961,7 +4123,7 @@ sub _organize_masking_regions {
     my @array=@{shift @_};
     @array=sort {${$b}[1] <=> ${$a}[1]} (@array);
     my @new_array;
-    
+
     #Combine terms and extend borders
     push @new_array, $array[0];
     for (my $i=1;$i<scalar @array;$i++){
@@ -3986,7 +4148,7 @@ sub scoring_threshold{
                  "SEQ_FREQ"=>[0.25,0.25,0.25,0.25],
                  );
     my %arg=(%default,@_);
-    
+
     #determine that required variables are supplied
     if (ref $arg{MOTIF} ne "Motif"){
         die "No motif supplied :  $!\n";
@@ -3994,16 +4156,16 @@ sub scoring_threshold{
     elsif (!defined $arg{SEQUENCE}){
         die "No sequence supplied:  $!\n";
     }
-    
+
     #if passed valid seq_freqency use this for LL and IC else ignore
     if (ref $arg{SEQ_FREQ} eq "HASH"){
 
     }
-    
+
     my $seq_size=length $arg{SEQUENCE};  #sequence length
     my @motif=@{$arg{MOTIF}->{POSITION_PROBABILITY_MATRIX}};
     my @report;
-    
+
     for (my $i=0;$i<=$seq_size-((scalar @motif)-1);$i++){  #Foreach position along sequence generate a score for both forward Motif
         my $cumulative_score;
         for (my $j=0;$j<(scalar @motif);$j++){ #Define values and accumulate score foreach position of Motif
@@ -4013,7 +4175,7 @@ sub scoring_threshold{
                         (uc($letter) eq "C") ? ($motif[$j][1]):
                         (uc($letter) eq "G") ? ($motif[$j][2]):
                         ($motif[$j][3]);
-                        
+
             #start scoring sequence
             #3 different scoring methods  (LL-Log Likelihood, IC-Information Content, BSO- bits-Sub-optimal)
             if ($arg{SCORING_METHOD} eq "LL"){
@@ -4289,7 +4451,7 @@ sub html_index {
               '</body>',
               '</noframes></html>'
               );
-    return \@index_html;  
+    return \@index_html;
 }
 
 sub html_menu{
