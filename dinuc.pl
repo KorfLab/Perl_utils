@@ -60,7 +60,7 @@ my $combined_sequences;
 my $count = 0;
 
 # print out header line, if we are using -tsv option
-print "%AA\t%AC\t%AG\t%AT\t%CA\t%CC\t%CG\t%CT\t%CA\t%CC\t%CG\t%CT\t%TA\t%TC\t%TG\t%TT\n" if ($tsv);
+print "%AA\t%AC\t%AG\t%AT\t%CA\t%CC\t%CG\t%CT\t%GA\t%GC\t%GG\t%GT\t%TA\t%TC\t%TG\t%TT\n" if ($tsv);
 
 
 # loop through each sequence in target file
