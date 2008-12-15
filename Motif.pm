@@ -2016,6 +2016,12 @@ sub _draw_motif{
 #           Include option to do information content instead of probability
 sub pictogram{
     my ($self,$job_directory)=@_;
+    
+     if ($self->size() == 0){
+    	die "Can't print any logos because there are no motifs in the motifset\n";
+    }
+    
+    
     if (!defined $job_directory){
         die "No Directory for pictograms" }
     else {
@@ -2045,13 +2051,19 @@ sub pictogram{
 #           Include option to do information content instead of probability
 sub logo{
     my ($self,$job_directory)=@_;
+    
+    if ($self->size() == 0){
+    	die "Can't print any logos because there are no motifs in the motifset\n";
+    }
+    
+    
     if (!defined $job_directory){
         die "No Directory for pictograms" }
     else {
     	mkdir("$job_directory",0755);
     }
 
-    for(my $i=0; $i<scalar(@{$self->{MOTIFS}});$i++){
+    for(my $i=0; $i<$self->size();$i++){
 
         my %defaults=(  "ppm"=>$self->{MOTIFS}->[$i]->{POSITION_PROBABILITY_MATRIX},
                         "filename"=>"$self->{MOTIFS}->[$i]->{ACCESSION}",
@@ -2712,6 +2724,8 @@ sub nestedmica_import {
 #
 sub meme_import {
     my ($self,$filename)=@_;
+    my $starting_size=$self->size();
+    
     open (MEME, "< $filename") or die "Couldn't Open $filename:$!\n;";
 
     if (exists $self->{Distance_Score}){
@@ -2880,6 +2894,16 @@ sub meme_import {
             next;}
     }
     close MEME;
+    
+   	my $finishing_size=$self->size();
+   	
+   	if(($finishing_size-$starting_size)==0){
+   		print "\nError: Either $filename doesn't contain any motifs or meme_import can't parse the file correctly\n\n";
+   	}
+   	else{
+   		print "meme_import imported " . ($finishing_size-$starting_size) . " motifs.\n";
+   		
+   	}
     return $self;
 }
 
