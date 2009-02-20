@@ -5,7 +5,7 @@ package Keith;
 # Last updated on: $Date$
 
 use strict;
-
+use List::Util qw(sum);
 
 # simple subroutine to just count nucleotide frequencies
 # also counts N's separately, and finally works out if
@@ -65,7 +65,39 @@ sub get_dinucleotides{
 
 
 
+# calculate a z test statistic from two sets of numbers.
+# will also calculate (and return), the means, standard deviations, 
+# and standard errors of the means for both datasets
+sub z_test{
+	my $a = shift;
+	my $b = shift;
+	
+	# 3rd value can be an optional level of precision
+	# defaults to 4 dp
+	my $precision = shift;
+	$precision = 4 if (!$precision);
+	
+	# and now all quite simple calculations....
+	my $count_a = @$a;
+	my $count_b = @$b;
+	
+	my $sum_a = sum(@$a);
+	my $sum_b = sum(@$b);
+	
+	my $mean_a = sprintf("%.${precision}f",$sum_a/$count_a);
+	my $mean_b = sprintf("%.${precision}f",$sum_b/$count_b);
+		
+	my $std_dev_a = sprintf("%.${precision}f",sqrt(sum(map {($_ - $mean_a) ** 2} @$a) / ($count_a -1)));
+	my $std_dev_b = sprintf("%.${precision}f",sqrt(sum(map {($_ - $mean_b) ** 2} @$b) / ($count_b -1)));
 
+    my $std_err_a = sprintf("%.${precision}f",$std_dev_a/sqrt($count_a));
+    my $std_err_b = sprintf("%.${precision}f",$std_dev_b/sqrt($count_b));
+
+	# ... leading up to the final z statistic
+    my $z = sprintf("%.${precision}f",($mean_a - $mean_b)/sqrt(($std_dev_a**2/$count_a)+($std_dev_b**2/$count_b)));
+
+	return($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b);
+} 
 
 
 
@@ -113,6 +145,22 @@ calculations exclude these 'Other' dinucleotides.
 
 Example: 
  my (@dinucs) = get_dinucleotides("aaccacacaggaggattttgaaag"); 
+
+
+=head2 z_test
+
+If you have two lists of numbers (in separate arrays), send them to the z_test function
+and it will calculate a z test statistic which will let you know how different the means
+of the two samples are (and whether the difference is significant).
+
+It will also (if you want) return the information used to calculate the z statistic (means,
+standard deviations, and standard errors)
+
+The function defaults to a level of 4 decimal places for precision, but you change this with 
+the third argument to the function
+
+Example (increasing level of precision to 5 dp): 
+my ($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b) = Keith::z_test(\@a,\@b,5);
 
 
 =head1 AUTHOR
