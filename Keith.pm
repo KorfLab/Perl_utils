@@ -99,6 +99,31 @@ sub z_test{
 	return($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b);
 } 
 
+#adds a new line character every 60 bases  
+
+sub tidy_seq{
+    my ($seq) = @_;
+    $seq =~ s/[\s\n]//g;
+    $seq =~ tr/a-z/A-Z/;
+    
+    my ($output_seq) = "";
+    my (@seq2) = "";
+    my ($start,$end);
+
+    @seq2 = split(//,$seq);
+    my $length = @seq2;
+    my ($to_add) = int($length/60);
+
+    $end = $start= 0;
+
+    foreach (1..$to_add){
+        $output_seq .= substr($seq,$start,60);
+        $output_seq .= "\n";
+        $start += 60;
+    }
+    $output_seq .= substr($seq,$start);
+    return ($output_seq);
+}
 
 
 1;
@@ -161,6 +186,13 @@ the third argument to the function
 
 Example (increasing level of precision to 5 dp): 
 my ($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b) = Keith::z_test(\@a,\@b,5);
+
+
+=head2 tidy_seq
+
+Simply pass subroutine a DNA/RNA/protein sequence (just the sequence, not the header) as a 
+string and subroutine will tidy up sequence to be all upper case and just 60 characters per line.
+
 
 
 =head1 AUTHOR
