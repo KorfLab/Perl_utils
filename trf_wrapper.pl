@@ -48,11 +48,11 @@ $indel = 2    if (!$indel);
 $pmatch = 80  if (!$pmatch);
 $pindel = 5   if (!$pindel);
 $min_score = 200  if (!$min_score); 
-$max_period = 500 if (!$max_period);
+$max_period = 750 if (!$max_period);
 
 # these are extra options that we can only implement through post-processing of raw trf output
 $min_copies = 2 if (!$min_copies);
-$min_length = 25  if (!$min_length);
+$min_length = 30  if (!$min_length);
 $min_repeat_fraction = 0.5  if (!$min_repeat_fraction);
 $high_repeat_threshold = 0.8 if (!$high_repeat_threshold);
 
