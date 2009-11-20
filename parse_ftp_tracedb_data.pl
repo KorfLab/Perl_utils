@@ -24,7 +24,7 @@ $SIG{'INT'} = 'INT_handler'; # for handling signal interrupts
 
 
 my $dir;              # directory to look for *.gz files
-my $min_bases;        # minimum number of bases that you need in a sequence after clipping to keep it
+my $min_bases;        # minimum number off bases that you need in a sequence after clipping to keep it
 my $max_n;	          # what is the maximum percentage of N's allowed in the clipped sequence
 my $max_output_size;  # maximum size of output files (in gigabytes) before they are rotated
 my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
@@ -45,8 +45,8 @@ GetOptions ("dir:s"             => \$dir,
 
 
 # set defaults if not specified on command line
-$min_bases = 30    if (!$min_bases);
-$max_n = 5         if (!$max_n);
+$min_bases = 60    if (!$min_bases);
+$max_n = 50         if (!$max_n);
 die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
 # set an initial limit of 0.5 Gb, and will create new output files if they grow bigger than that
@@ -63,14 +63,16 @@ $dir = "" if (!$dir);
 # need to keep track of:
 # 1) total traces parsed
 # 2) how many bases are clipped
-# 3) how many traces are rejected for being too short after clipping low quality bases, 
-# 4) how many traces are rejected for containing too many Ns
+# 3) how many traces are rejected for being too short after clipping low quality bases, or have too few non-ATCG characters after dusting
+# 4) how many traces are rejected for containing > $max_n % Ns (calculated both before and after dusting)
 # 5) how many other errors there were (e.g. when clip left coordinate is greater than total length of sequence)
 my $total_traces = 0;
 my $total_bases = 0;
 my $total_clipped_bases = 0;
 my $total_rejected_high_n = 0;
+my $total_rejected_high_n2 = 0;
 my $total_rejected_too_short = 0;
+my $total_rejected_too_short2 = 0;
 my $total_errors = 0;
 
 my $date;
@@ -121,7 +123,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	
 	# stop if -stop is being used
     if($stop && ($species =~ m/^$stop/)){
-    	print "\nLetter $stop has been reached...stopping program\n";
+    	print STDERR "\nLetter $stop has been reached...stopping program\n";
         exit(0);
      }
 	
@@ -133,17 +135,17 @@ FILE: foreach my $clip_file (@clip_files) {
 	
 	# no point proceeding if we can't find the accompanying FASTA file in the same directory
 	if (! -e $fasta_file){
-		print "ERROR: Can't find $fasta_file\n"; 
+		print STDERR "ERROR: Can't find $fasta_file\n"; 
 		next FILE;
 	}
 
 	# now check to see whether this file has been processed before (if -ignore_processed option is in use)
 	if($ignore_processed && $previously_processed{$clip_file_name}){
-		print "$clip_file_name has been processed before, skipping to next file\n" if ($verbose);
+		print STDERR "$clip_file_name has been processed before, skipping to next file\n" if ($verbose);
 		next FILE;	
 	}
 
-  	print "Unzipping $clip_file\n" if ($verbose);	
+  	print STDERR "Unzipping $clip_file\n" if ($verbose);	
 
 	# now process clip file to store information
 	# use two hashes which track clip left/right values for each TI
@@ -159,7 +161,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 	close(IN);
 
-	print "Unzipping $fasta_file\n" if ($verbose);	
+	print STDERR "Unzipping $fasta_file\n" if ($verbose);	
   
 	# now need to parse the associated data in FASTA file
 	# send command through a pipe to gunzip and then output will be sent to FAlite module	
@@ -174,6 +176,8 @@ FILE: foreach my $clip_file (@clip_files) {
 	my $file_clipped_bases = 0;
 	my $file_rejected_high_n = 0;
 	my $file_rejected_too_short = 0;
+	my $file_rejected_high_n2 = 0;
+	my $file_rejected_too_short2 = 0;
 	my $file_errors = 0;
 
     open(FASTA,"/usr/bin/gunzip -c $fasta_file | ") or die "Can't open pipe on gunzip $fasta_file: $? $!\n";
@@ -187,7 +191,7 @@ FILE: foreach my $clip_file (@clip_files) {
             $ti_to_seq{$ti} = $entry->seq;
             $ti_to_seqlength{$ti} = length($entry->seq);
 
-			#print "TI: $ti CLIP_RIGHT: $ti_to_clip_right{$ti}\n";
+			#print STDERR "TI: $ti CLIP_RIGHT: $ti_to_clip_right{$ti}\n";
 			
             # update stats
 			$total_traces++;
@@ -203,7 +207,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	# copied to commando. This will help decide what numerical suffix the file should get
 	my $last_commando_file = check_commando($species);
 	my $last_local_file = check_local($species,$dir);
-	
+
 	# choose highest value between two files
 	my $last_processed_output_file = $last_commando_file+1; 
 	($last_processed_output_file = $last_local_file) if ($last_local_file > $last_commando_file); 
@@ -220,7 +224,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	else{
 		# if output file exists but is too big we need to make a new file with an incremented suffix
 		if(-s $output_file > $max_output_size){
-			print "$output_file has become too large (>$max_output_size gigabytes), creating new output file\n" if ($verbose);
+			print STDERR "$output_file has become too large (>$max_output_size gigabytes), creating new output file\n" if ($verbose);
 			
 			# do we want to move this older file to commando?
 			if ($move_files){
@@ -232,7 +236,6 @@ FILE: foreach my $clip_file (@clip_files) {
 				if($clean_files){
 					unlink("${output_file}.gz")  or die "Can't remove ${output_file}.gz\n";
 				}
-				
 			}
 		
 			$output_file_counter++;
@@ -245,15 +248,17 @@ FILE: foreach my $clip_file (@clip_files) {
 		}
 	}
 
+	# also want to open a temporary file to write output that will then be subjected to the DUST filter
+	open(PREDUST, ">$output_file.predust") or die "Can't create $output_file.predust\n";
 	
-	print "Processing $clip_file_name & $fasta_file_name\n";	
+	print STDERR "Processing $clip_file_name & $fasta_file_name\n";	
 
 	# now loop through all the TIs and clip sequence if necessary
 	TRACE: foreach my $ti (sort {$a <=> $b} keys %ti_to_seq){
 		my $length = $ti_to_seqlength{$ti};
 
 		# set clip left value to zero and set clip right-values to the length of sequence as we want to see if there are values that are lower than this		
-		my $left=0;
+		my $left = 0;
 		my $right=$length;
 		
 		my $clip_left = $ti_to_clip_left{$ti};
@@ -269,19 +274,16 @@ FILE: foreach my $clip_file (@clip_files) {
 		# for the right-fields, need to remember that a zero value just means no clip information is present
 		($right = $clip_right)   if (($clip_right < $right)   && ($clip_right   != 0));
 
-#		print "TI=$ti Length = $length Left = $left, right = $right\n";
-
-
 		# have some basic sanity checks to catch errors		
 		if(($clip_left > $length) || ($left > $right)){
 			$file_errors++;
 			$total_errors++;
-			print "ERROR: Inconsistent information - TI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right\n" if ($verbose);
+			print STDERR "ERROR: Inconsistent information - TI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right\n" if ($verbose);
 		
 			# no point going any further
 			next TRACE;
 		}
-		
+				
 		# now clip sequence if necessary
 		my $seq = $ti_to_seq{$ti};
 		if($left > 0 || $right < $length){
@@ -299,7 +301,7 @@ FILE: foreach my $clip_file (@clip_files) {
 			if($remaining_bases < $min_bases){
 				$total_rejected_too_short++;
 				$file_rejected_too_short++;
-				print "ERROR: $ti has $remaining_bases bases after clipping\n" if ($verbose);
+				print STDERR "ERROR: $ti has $remaining_bases bases after clipping\n" if ($verbose);
 				next(TRACE);
 			}
 			
@@ -317,26 +319,73 @@ FILE: foreach my $clip_file (@clip_files) {
 		if($percent_n > $max_n){
 			$total_rejected_high_n++;
 			$file_rejected_high_n++;			
-			print "ERROR: $ti contains more than ${max_n}% Ns in its sequence\n" if ($verbose);
+			print STDERR "ERROR: $ti contains more than ${max_n}% Ns in its sequence\n" if ($verbose);
 			next(TRACE);
 		}
 		
-		# If we have survived to this point, then we have a valid sequence which we can tidy and then print to output
+		# If we have survived to this point, then we have a valid sequence which we can tidy and then print to the predust output
 		my $tidied_seq = tidy_seq($seq);
-		print OUT "$ti_to_header{$ti}\n$tidied_seq\n";
+		print PREDUST "$ti_to_header{$ti}\n$tidied_seq\n";
 	}
+	close(PREDUST);
+
+	# now need to run the dust program to filter low complexity regions from reads
+	system("dust $output_file.predust > $output_file.dust") && die "Can't run dust program on $output_file.predust\n";
+
+	# open dusted file and filter sequences
+	open(DUST,"<$output_file.dust") or die "Can't open $output_file.dust\n";	
+	my $file = new FAlite (\*DUST);
+
+    while (my $entry = $file->nextEntry) {
+    	my $header = $entry->def;
+		my ($ti) = $header =~ m/ti\|(\d+) /;
+		my $seq = uc($entry->seq);        
+		my $length = length($seq);
+		my $n = $seq =~ tr/N/N/;
+		my $non_n = $length - $n;
+		my $percent_n = ($n / $length * 100);
+		
+		# reject sequence if there is not enough space to have a tandem repeat
+		if ($non_n < $min_bases){
+			print STDERR "ERROR: $ti contains fewer than $min_bases bases that are not Ns in its sequence after dusting\n" if ($verbose);
+			$file_rejected_too_short2++;			
+			$total_rejected_too_short2++;			
+			next;
+		}
+		# reject if there are too many N's now overall (some Ns may have been in sequence before dusting)
+		elsif ($percent_n > $max_n){
+			print STDERR "ERROR: $ti contains more than ${max_n}% Ns in its sequence after dusting\n" if ($verbose);
+			$file_rejected_high_n2++;			
+			$total_rejected_high_n2++;			
+			next;
+		}
+		# if we get here, we have a sequence which is OK and we can print to the final output file
+		else{
+			my $tidied_seq = tidy_seq($seq);
+			print OUT "$header\n$tidied_seq\n";
+		}
+	}
+	
+	# clean up
+	close(DUST);
+	unlink("$output_file.predust") or die "Can't remove $output_file.predust\n";
+	unlink("$output_file.dust")    or die "Can't remove $output_file.dust\n";
 	close(OUT);
+	
 	
 	# print summary statistics for just this file
 	my $percent_clipped = sprintf("%.1f",($file_clipped_bases/$file_total_bases)*100);
-	print "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($file_rejected_too_short > 0);
-	print "$file_rejected_high_n traces were rejected for containing too many unknown bases (>$max_n%)\n" if ($file_rejected_high_n > 0);
-	print "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
+	print STDERR "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print STDERR "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($file_rejected_too_short > 0);
+	print STDERR "$file_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n" if ($file_rejected_high_n > 0);
+	print STDERR "$file_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n" if ($file_rejected_high_n2 > 0);
+	print STDERR "$file_rejected_too_short2 traces were rejected for being having less than $min_bases non-N characters after dusting\n" if ($file_rejected_too_short2 > 0);
+	print STDERR "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
+
 
 	# update processed file information, include settings used to process files
-	print PROCESSED "$clip_file_name min_bases=$min_bases max_n=$max_n\n";
-	print PROCESSED "$fasta_file_name min_bases=$min_bases max_n=$max_n\n";
+	print PROCESSED "$clip_file_name min bases=$min_bases max \%n=$max_n\n";
+	print PROCESSED "$fasta_file_name min bases=$min_bases max \%n=$max_n\n";
 	
 	
 	# check to see if there are more files to come this species, if not then potentially FTP the output file to commando
@@ -360,7 +409,7 @@ FILE: foreach my $clip_file (@clip_files) {
 		}
 	}
 	
-	print "\n";
+	print STDERR "\n";
 	
 	# do we want to remove the original (unprocessed) zipped files?
 	if ($clean_files){
@@ -374,12 +423,14 @@ close(PROCESSED);
 
 # print summary statistics for all files examined so far, across all species
 my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
-print "\n\n======================================================\n\n";
-print "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-print "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
-print "TOTAL: $total_rejected_high_n traces were rejected for containing too many unknown bases (>$max_n%)\n";
-print "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
-print "======================================================\n\n";
+print STDERR "\n\n======================================================\n\n";
+print STDERR "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+print STDERR "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+print STDERR "TOTAL: $total_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n";
+print STDERR "TOTAL: $total_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n";
+print STDERR "TOTAL: $total_rejected_too_short2 traces were rejected for having less than $min_bases non-N characters after dusting\n";
+print STDERR "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
+print STDERR "======================================================\n\n";
 
 exit(0);
 
@@ -394,13 +445,15 @@ sub INT_handler {
 	chomp($date);
 	
 	my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
-	print "\n\n======================================================\n\n";
-	print "SCRIPT INTERRUPTED at $date\n";
-	print "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
-	print "TOTAL: $total_rejected_high_n traces were rejected for containing too many unknown bases (>$max_n%)\n";
-	print "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
-	print "======================================================\n\n";
+	print STDERR "\n\n======================================================\n\n";
+	print STDERR "SCRIPT INTERRUPTED at $date\n";
+	print STDERR "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print STDERR "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+	print STDERR "TOTAL: $total_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n";
+	print STDERR "TOTAL: $total_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n";
+	print STDERR "TOTAL: $total_rejected_too_short2 traces were rejected for having less than $min_bases non-N characters after dusting\n";
+	print STDERR "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
+	print STDERR "======================================================\n\n";
     exit(0);
 }
 
@@ -426,7 +479,7 @@ sub ftp_files{
 
 	# now transfer all files
 	foreach my $file (@files){
-		print "FTPing $file to $host\n";
+		print STDERR "FTPing $file to $host\n";
 		$ftp->put($file) or die "Can't transfer $file to $host",$ftp->message;	
 	}
 
@@ -449,13 +502,20 @@ sub check_commando{
  	my $timeout = 180;
 	my $ftp;
 
-	$ftp = Net::FTP->new($host, Timeout => $timeout)  or die "Cannot connect to $host: $@\n",$ftp->message;
+	$ftp = Net::FTP->new($host, Timeout => $timeout);
+	# can return back to script if can't make connection
+	if(!$ftp){
+		print STDERR "Cannot connect to $host: $@\n"; 
+		return(0);
+	}
+	
 	$ftp->login($user,$password) or die "Cannot login ", $ftp->message, "\n";
 	$ftp->binary;
 	$ftp->cwd($dir) or die "Can't change directory to $dir",$ftp->message;
 
 	my @fasta;
-	# if there no files already copied to commando, we return zero
+	
+	# if there no files already copied to commando, we return zero and assume that no files exist
  	unless(@fasta = $ftp->ls("${species}_processed_traces.[0-9]*.fa.*")){
 		$ftp->quit or die "Can't quit FTP",$ftp->message;
 		return(0);               
