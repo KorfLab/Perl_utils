@@ -27,6 +27,7 @@ my $min_copies; # minimum number of copies of repeat in read
 my $min_length; # minimum length of repeat unit
 my $min_repeat_fraction; # what percentage of the read length should be occupied by repeats?
 my $high_repeat_threshold; # what fraction of read length will we use for our 'high repeat fraction' repeats
+my $output_number; # allow the numbering of tandem repeats in output file to start from the last number used
 
 GetOptions ("match:i"   => \$match,
            "mismatch:i" => \$mismatch,
@@ -38,7 +39,8 @@ GetOptions ("match:i"   => \$match,
            "copies:f"   => \$min_copies,
            "length:i"   => \$min_length,
 		   "min_repeat_fraction:f" => \$min_repeat_fraction,
-		   "high_repeat_threshold:f" => \$high_repeat_threshold);
+		   "high_repeat_threshold:f" => \$high_repeat_threshold,
+			"output_number:i" => \$output_number);
 
 # set defaults if not specified on command line
 # these are all defaults used (and suggested) by the trf program
@@ -49,6 +51,7 @@ $pmatch = 80  if (!$pmatch);
 $pindel = 5   if (!$pindel);
 $min_score = 200  if (!$min_score); 
 $max_period = 750 if (!$max_period);
+$output_number = 0 if (!$output_number); 
 
 # these are extra options that we can only implement through post-processing of raw trf output
 $min_copies = 2 if (!$min_copies);
@@ -206,15 +209,16 @@ REPEAT: while(<DATA>){
 		
 		# if we are here then we are keeping the repeat and printing it out
 		$output_counter++;
-
+		$output_number++;
+		
 		my $formatted = sprintf("%.0f",$repeat_fraction * 100);
 		# which output file will the repeats go in?
 		if($repeat_fraction > $high_repeat_threshold){
-			print OUT1 ">tandem-$output_counter N=$copies L=$repeat_length F=$formatted% P=$header\n";
+			print OUT1 ">tandem-$output_number N=$copies L=$repeat_length F=$formatted% P=$header\n";
 			print OUT1 "$tidied\n";			
 		}
 		else{
-			print OUT2 ">tandem-$output_counter N=$copies L=$repeat_length F=$formatted% P=$header\n";
+			print OUT2 ">tandem-$output_number N=$copies L=$repeat_length F=$formatted% P=$header\n";
 			print OUT2 "$tidied\n";
 		}
 	}
