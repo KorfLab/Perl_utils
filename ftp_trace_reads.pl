@@ -11,6 +11,7 @@ use strict;
 use warnings;
 use Getopt::Long;
 use Net::FTP;
+use List::Util 'shuffle';
 
 # turn on autoflush
 $| = 1;
@@ -31,6 +32,7 @@ my $species_list; # optionally specify a file which contains species (quicker th
 my $prog;         # specify path to a program that will produce list of (eukaryotic) species
 my $verbose;      # turn on extra output (usefulf for debugging)
 my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
+my $random;       # download files in a random order, rather than just grabbing the first N files on FTP site
 my $stop;         # stop script when you reach species starting with specified letters
 
 GetOptions ("max_files:i"    => \$max_files,
@@ -42,11 +44,12 @@ GetOptions ("max_files:i"    => \$max_files,
 			"species_list:s" => \$species_list,
 			"stop:s"         => \$stop,			
 			"prog:s"         => \$prog,
-			"ignore_processed"  => \$ignore_processed,			
+			"ignore_processed"  => \$ignore_processed,	
+			"random"		 => \$random,
 			"verbose"        => \$verbose);
 
 # set defaults if not specified on command line
-$max_files = 2     if (!$max_files);
+$max_files = 10     if (!$max_files);
 $timeout = 180     if (!$timeout);
 $sleep = 10        if (!$sleep);
 $max_attempts = 5  if (!$max_attempts);
@@ -134,22 +137,20 @@ SPECIES: foreach my $species (@taxa){
 	# for some species the first file is not numbered 1 (it's either absent or there are qualityless files instead of
 	# the regular files)
 	
-	my $first_file = $fasta[0];	
-	$first_file =~ m/fasta.$species.(\d+).gz/;
-	my $starting_file = $1;
+	my ($starting_file) = $fasta[0] =~ m/fasta.$species.(\d+).gz/;
 	$starting_file =~ s/^0+//;
-	
-	
-	my $last_file = $fasta[-1];
-	$last_file =~ m/fasta.$species.(\d+).gz/;
-	my $number_of_files = $1;
-	
+		
+	my ($number_of_files) = $fasta[-1] =~ m/fasta.$species.(\d+).gz/;	
 	$number_of_files =~ s/^0+//;
 	
 	my $file_counter = 0;
 	
-	FILE: for (my $i=$starting_file;$i<=$number_of_files;$i++){
-		
+	# create list of actual files indices to grab 
+	# this will depend on whether -random mode is being used or not, in which case we shuffle the list
+	my @file_indices = ($starting_file..$number_of_files);
+	(@file_indices = shuffle(@file_indices)) if ($random);  
+
+	FILE: foreach my $index (@file_indices){
 		$file_counter++;
 						
 		# break out of loop if we have exceeded max number of pages
@@ -159,18 +160,16 @@ SPECIES: foreach my $species (@taxa){
 		}	
 		
 		# grab files in pairs, fasta + clip (they should pair up) 
-		my $fasta_return = get_files($dir,$species,$i,$number_of_files,"fasta",1);
-		print "get_files (FASTA) failed for $species $i\n" if (!$fasta_return);
+		my $fasta_return = get_files($dir,$species,$index,$number_of_files,"fasta",1);
+		print "get_files (FASTA) failed for $species $index\n" if (!$fasta_return);
 		
-		my $clip_return = get_files($dir,$species,$i,$number_of_files,"clip",1);
-		print "get_files (CLIP) failed for $species $i\n" if (!$clip_return);
+		my $clip_return = get_files($dir,$species,$index,$number_of_files,"clip",1);
+		print "get_files (CLIP) failed for $species $index\n" if (!$clip_return);
 		
 	}
 	# tidy up
 	$ftp->quit or die "Can't quit FTP",$ftp->message;
 }
-
-
 
 print "\n$missing_counter species (out of $species_counter) could not be found on FTP site, might be due to slight variations in species names\n\n";
 
