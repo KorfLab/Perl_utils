@@ -49,8 +49,8 @@ $min_bases = 60    if (!$min_bases);
 $max_n = 50         if (!$max_n);
 die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
-# set an initial limit of 0.5 Gb, and will create new output files if they grow bigger than that
-$max_output_size = 0.5 if (!$max_output_size);
+# set an initial limit of 0.25 Gb, and will create new output files if they grow bigger than that
+$max_output_size = 0.25 if (!$max_output_size);
 # convert to bytes
 $max_output_size *= 1073741824;
 
