@@ -31,7 +31,8 @@ my $ignore_processed; # check to see what files have previously been processed a
 my $verbose;          # turn on extra output - e.g. errors for traces that were rejected
 my $move_files;       # ftp files to commando
 my $clean_files;      # remove existing gzip files after transfer
-my $stop;         # stop script when you reach species starting with specified letters
+my $stop;             # stop script when you reach species starting with specified letters
+my $check_commando;   # check to see what files were already processed on commando, and continue numbering from that point
 
 GetOptions ("dir:s"             => \$dir,
 			"min_bases:i"       => \$min_bases,
@@ -41,7 +42,8 @@ GetOptions ("dir:s"             => \$dir,
 			"ignore_processed"  => \$ignore_processed,
 			"move_files"        => \$move_files,
 			"stop:s"            => \$stop,                     
-			"clean_files"       => \$clean_files);
+			"clean_files"       => \$clean_files,
+			"check_commando"    => \$check_commando);
 
 
 # set defaults if not specified on command line
@@ -205,15 +207,18 @@ FILE: foreach my $clip_file (@clip_files) {
 	# time to open an output file for processed data, but we first need to see whether there are output files 
 	# that were already copied to commando and/or output files in the current directory which were not 
 	# copied to commando. This will help decide what numerical suffix the file should get
-	my $last_commando_file = check_commando($species);
+	my $last_commando_file = 0;
+	if ($check_commando){
+		$last_commando_file = check_commando($species);
+	}
 	my $last_local_file = check_local($species,$dir);
 
 	# choose highest value between two files
-	my $last_processed_output_file = $last_commando_file+1; 
+	my $last_processed_output_file = $last_commando_file; 
 	($last_processed_output_file = $last_local_file) if ($last_local_file > $last_commando_file); 
 
 	# increment file counter (it will be set to 1 if there are no files on commando)
-	my $output_file_counter = $last_processed_output_file;
+	my $output_file_counter = $last_processed_output_file + 1;
 	my $output_file = "${species}_processed_traces.${output_file_counter}.fa";
 	
 	# if output file doesn't already exist open a new one...
@@ -537,7 +542,7 @@ sub check_local{
 
 	my @fasta;
 	# if there no files already copied to commando, we return zero
- 	unless(@fasta = glob("${dir}${species}_processed_traces.[0-9]*.fa")){
+ 	unless(@fasta = glob("${dir}${species}_processed_traces.[0-9]*.fa.*")){
 		return(0);               
  	}               
 
