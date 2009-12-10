@@ -33,6 +33,7 @@ my $move_files;       # ftp files to commando
 my $clean_files;      # remove existing gzip files after transfer
 my $stop;             # stop script when you reach species starting with specified letters
 my $check_commando;   # check to see what files were already processed on commando, and continue numbering from that point
+my $random;           # to match the random mode of get_trace_reads.pl, this option will exclude some code that requires sequentially numbered files
 
 GetOptions ("dir:s"             => \$dir,
 			"min_bases:i"       => \$min_bases,
@@ -43,7 +44,8 @@ GetOptions ("dir:s"             => \$dir,
 			"move_files"        => \$move_files,
 			"stop:s"            => \$stop,                     
 			"clean_files"       => \$clean_files,
-			"check_commando"    => \$check_commando);
+			"check_commando"    => \$check_commando,
+			"random"            => \$random);
 
 
 # set defaults if not specified on command line
@@ -113,7 +115,11 @@ if($ignore_processed){
 # Get list of clip files in current directory (or in $dir if specified)
 my @clip_files = glob("${dir}clip.*.gz");
 
+# simple counter to keep track of where we are in the array of all clip files
+my $array_counter = -1;
+
 FILE: foreach my $clip_file (@clip_files) {
+	$array_counter++; # will now be 0 for first file which is what we want
 	
 	# make copy of just file name without path
 	my $clip_file_name = $clip_file;
@@ -395,14 +401,11 @@ FILE: foreach my $clip_file (@clip_files) {
 	
 	# check to see if there are more files to come this species, if not then potentially FTP the output file to commando
 	# first have to form what the next file name will be (for clip files)
-	my $next_number = $file_number;
-	$next_number =~ s/^0+//;
-	$next_number++;
-	$next_number = sprintf("%03d", $next_number);
-	my $next_file_name = "clip.$species.$next_number.gz";
-
-	# transfer file now unless there is another file for this species in the same directory
-	unless(-e $next_file_name){
+	
+	# see whether 1) there is another file in @clip_files and 2) the file belongs to the same species as this one
+	unless($clip_files[$array_counter+1] =~ m/$species/){
+		
+		# no more files for this species so we can zip it and possibly transfer it
 		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
 		if ($move_files){
 			ftp_files("${output_file}.gz");
