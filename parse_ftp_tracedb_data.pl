@@ -50,7 +50,7 @@ GetOptions ("dir:s"             => \$dir,
 
 # set defaults if not specified on command line
 $min_bases = 60    if (!$min_bases);
-$max_n = 50         if (!$max_n);
+$max_n = 5         if (!$max_n);
 die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
 # set an initial limit of 0.25 Gb, and will create new output files if they grow bigger than that
