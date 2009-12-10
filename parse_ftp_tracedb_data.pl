@@ -403,7 +403,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	# first have to form what the next file name will be (for clip files)
 	
 	# see whether 1) there is another file in @clip_files and 2) the file belongs to the same species as this one
-	unless($clip_files[$array_counter+1] =~ m/$species/){
+	unless(defined($clip_files[$array_counter+1]) && ($clip_files[$array_counter+1] =~ m/$species/)){
 		
 		# no more files for this species so we can zip it and possibly transfer it
 		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
