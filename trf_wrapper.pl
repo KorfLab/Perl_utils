@@ -30,17 +30,18 @@ my $high_repeat_threshold; # what fraction of read length will we use for our 'h
 my $output_number; # allow the numbering of tandem repeats in output file to start from the last number used
 
 GetOptions ("match:i"   => \$match,
-           "mismatch:i" => \$mismatch,
-           "indel:i"    => \$indel,
-           "pmatch:i"   => \$pmatch,
-           "pindel:i"   => \$pindel,
-           "min_score:i" => \$min_score,
-           "period:i"   => \$max_period,
-           "copies:f"   => \$min_copies,
-           "length:i"   => \$min_length,
-		   "min_repeat_fraction:f" => \$min_repeat_fraction,
-		   "high_repeat_threshold:f" => \$high_repeat_threshold,
-			"output_number:i" => \$output_number);
+            "mismatch:i" => \$mismatch,
+            "indel:i"    => \$indel,
+            "pmatch:i"   => \$pmatch,
+			"pindel:i"   => \$pindel,
+            "min_score:i" => \$min_score,
+            "period:i"   => \$max_period,
+            "copies:f"   => \$min_copies,
+            "length:i"   => \$min_length,
+		    "min_repeat_fraction:f" => \$min_repeat_fraction,
+		    "high_repeat_threshold:f" => \$high_repeat_threshold,
+		    "output_number:i" => \$output_number,
+			);
 
 # set defaults if not specified on command line
 # these are all defaults used (and suggested) by the trf program
@@ -55,7 +56,7 @@ $output_number = 0 if (!$output_number);
 
 # these are extra options that we can only implement through post-processing of raw trf output
 $min_copies = 2 if (!$min_copies);
-$min_length = 30  if (!$min_length);
+$min_length = 50  if (!$min_length);
 $min_repeat_fraction = 0.5  if (!$min_repeat_fraction);
 $high_repeat_threshold = 0.8 if (!$high_repeat_threshold);
 
@@ -234,15 +235,15 @@ close(DATA);
 #
 ################################
 
-print "Processed $seq_counter sequences containing $repeat_counter repeats";
-print ", $output_counter of which matched all criteria\n\n";
+print STDERR "Processed $seq_counter sequences containing $repeat_counter repeats";
+print STDERR ", $output_counter of which matched all criteria\n\n";
 
 my $total_rejections = $errors{'repeat_length'} + $errors{'min_copies'} + $errors{'min_repeat_fraction'} + $errors{'length_multiple'};
-print "$total_rejections repeats rejected for failing criteria:\n";
-print "\t$errors{'min_repeat_fraction'} repeats rejected for making up too low a fraction of the total sequence (<$min_repeat_fraction)\n";
-print "\t$errors{'repeat_length'} repeats rejected for being too short (<$min_length nt)\n";
-print "\t$errors{'min_copies'} repeats rejected for having too few copies (<$min_copies)\n";
-print "\t$errors{'length_multiple'} repeats rejected for being a multiple of a shorter repeat\n\n";
+print STDERR "$total_rejections repeats rejected for failing criteria:\n";
+print STDERR "\t$errors{'min_repeat_fraction'} repeats rejected for making up too low a fraction of the total sequence (<$min_repeat_fraction)\n";
+print STDERR "\t$errors{'repeat_length'} repeats rejected for being too short (<$min_length nt)\n";
+print STDERR "\t$errors{'min_copies'} repeats rejected for having too few copies (<$min_copies)\n";
+print STDERR "\t$errors{'length_multiple'} repeats rejected for being a multiple of a shorter repeat\n\n";
 
 
 exit(0);
