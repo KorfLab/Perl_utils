@@ -125,6 +125,14 @@ sub tidy_seq{
     return ($output_seq);
 }
 
+# reverse complement a sequence
+sub revcomp{
+	my ($seq) = @_;
+	$seq = uc($seq);
+	my $revcomp = reverse $seq;
+	$revcomp =~ tr/ACGTRSKBD/TGCAYWMVH/;
+	return ($revcomp);	
+}
 
 1;
 
@@ -193,7 +201,9 @@ my ($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b) = Keith::z_t
 Simply pass subroutine a DNA/RNA/protein sequence (just the sequence, not the header) as a 
 string and subroutine will tidy up sequence to be all upper case and just 60 characters per line.
 
+=head2 revcomp
 
+Returns the reverse complement of a DNA sequence
 
 =head1 AUTHOR
 
