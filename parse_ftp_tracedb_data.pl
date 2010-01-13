@@ -26,37 +26,29 @@ $SIG{'INT'} = 'INT_handler'; # for handling signal interrupts
 my $dir;              # directory to look for *.gz files
 my $min_bases;        # minimum number off bases that you need in a sequence after clipping to keep it
 my $max_n;	          # what is the maximum percentage of N's allowed in the clipped sequence
-my $max_output_size;  # maximum size of output files (in gigabytes) before they are rotated
 my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
 my $verbose;          # turn on extra output - e.g. errors for traces that were rejected
-my $move_files;       # ftp files to commando
+my $move_processed;   # ftp unprocessed trace read files to commando
+my $move_unprocessed; # ftp the new processed trace read files to commando
 my $clean_files;      # remove existing gzip files after transfer
 my $stop;             # stop script when you reach species starting with specified letters
-my $check_commando;   # check to see what files were already processed on commando, and continue numbering from that point
-my $random;           # to match the random mode of get_trace_reads.pl, this option will exclude some code that requires sequentially numbered files
 
 GetOptions ("dir:s"             => \$dir,
 			"min_bases:i"       => \$min_bases,
 			"max_n:f"           => \$max_n,
 			"verbose"           => \$verbose,
-			"max_output_size:f" => \$max_output_size,
 			"ignore_processed"  => \$ignore_processed,
-			"move_files"        => \$move_files,
+			"move_processed"    => \$move_processed,
+			"move_unprocessed"  => \$move_unprocessed,
 			"stop:s"            => \$stop,                     
-			"clean_files"       => \$clean_files,
-			"check_commando"    => \$check_commando,
-			"random"            => \$random);
+			"clean_files"       => \$clean_files
+			);
 
 
 # set defaults if not specified on command line
 $min_bases = 60    if (!$min_bases);
 $max_n = 5         if (!$max_n);
 die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
-
-# set an initial limit of 0.25 Gb, and will create new output files if they grow bigger than that
-$max_output_size = 0.25 if (!$max_output_size);
-# convert to bytes
-$max_output_size *= 1073741824;
 
 $dir = "" if (!$dir);
 
@@ -160,6 +152,8 @@ FILE: foreach my $clip_file (@clip_files) {
 	my %ti_to_clip_left;
 	my %ti_to_clip_right;
 
+	print STDERR "Processing $clip_file_name\n";	
+
 	open(IN, "gunzip -c $clip_file |") || die "Can't open $clip_file: $? $!\n";	
 	while(my $line = <IN>){
 		next if ($line =~ m/^TI/);
@@ -169,7 +163,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 	close(IN);
 
-	print STDERR "Unzipping $fasta_file\n" if ($verbose);	
+	print STDERR "Processing $fasta_file_name\n";	
   
 	# now need to parse the associated data in FASTA file
 	# send command through a pipe to gunzip and then output will be sent to FAlite module	
@@ -209,61 +203,14 @@ FILE: foreach my $clip_file (@clip_files) {
     }       
     close(FASTA);
 
+	# create output file name to be used for a couple of output files
+	my $output_file = "${species}_processed_traces.${file_number}.fa";
 
-	# time to open an output file for processed data, but we first need to see whether there are output files 
-	# that were already copied to commando and/or output files in the current directory which were not 
-	# copied to commando. This will help decide what numerical suffix the file should get
-	my $last_commando_file = 0;
-	if ($check_commando){
-		$last_commando_file = check_commando($species);
-	}
-	my $last_local_file = check_local($species,$dir);
-
-	# choose highest value between two files
-	my $last_processed_output_file = $last_commando_file; 
-	($last_processed_output_file = $last_local_file) if ($last_local_file > $last_commando_file); 
-
-	# increment file counter (it will be set to 1 if there are no files on commando)
-	my $output_file_counter = $last_processed_output_file + 1;
-	my $output_file = "${species}_processed_traces.${output_file_counter}.fa";
-	
-	# if output file doesn't already exist open a new one...
-	if(! -e $output_file){
-		open(OUT,">$output_file") or die "Can't create $output_file\n";		
-	}
-	# so we already have an existing output file for this species, but do we want to use it?
-	else{
-		# if output file exists but is too big we need to make a new file with an incremented suffix
-		if(-s $output_file > $max_output_size){
-			print STDERR "$output_file has become too large (>$max_output_size gigabytes), creating new output file\n" if ($verbose);
-			
-			# do we want to move this older file to commando?
-			if ($move_files){
-				# first zip file to save space and speed transfer
-				system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
-				ftp_files("${output_file}.gz");
-				
-				# if we are cleaning then we can also get rid of the processed gzip file
-				if($clean_files){
-					unlink("${output_file}.gz")  or die "Can't remove ${output_file}.gz\n";
-				}
-			}
-		
-			$output_file_counter++;
-			$output_file = "${species}_processed_traces.${output_file_counter}.fa";
-			open(OUT,">$output_file") or die "Can't write to $output_file\n";		
-		}
-		# if here then we have an existing output file which is not too big, so we can just append 
-		else{
-			open(OUT,">>$output_file") or die "Can't append to $output_file\n";			
-		}
-	}
-
-	# also want to open a temporary file to write output that will then be subjected to the DUST filter
+ 	# also want to open a temporary file to write output that will then be subjected to the DUST filter
 	open(PREDUST, ">$output_file.predust") or die "Can't create $output_file.predust\n";
+				
+	print STDERR "Looping through all traces\n";
 	
-	print STDERR "Processing $clip_file_name & $fasta_file_name\n";	
-
 	# now loop through all the TIs and clip sequence if necessary
 	TRACE: foreach my $ti (sort {$a <=> $b} keys %ti_to_seq){
 		my $length = $ti_to_seqlength{$ti};
@@ -340,13 +287,20 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 	close(PREDUST);
 
+
 	# now need to run the dust program to filter low complexity regions from reads
+	print STDERR "Filtering sequences with DUST\n";
 	system("dust $output_file.predust > $output_file.dust") && die "Can't run dust program on $output_file.predust\n";
+
+ 	# open main output file to hold processed sequences
+	open(OUT,">$output_file") or die "Can't create $output_file\n";	
 
 	# open dusted file and filter sequences
 	open(DUST,"<$output_file.dust") or die "Can't open $output_file.dust\n";	
 	my $file = new FAlite (\*DUST);
 
+	print STDERR "Applying sequence filters to DUSTed file\n";
+	
     while (my $entry = $file->nextEntry) {
     	my $header = $entry->def;
 		my ($ti) = $header =~ m/ti\|(\d+) /;
@@ -382,8 +336,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	unlink("$output_file.predust") or die "Can't remove $output_file.predust\n";
 	unlink("$output_file.dust")    or die "Can't remove $output_file.dust\n";
 	close(OUT);
-	
-	
+		
 	# print summary statistics for just this file
 	my $percent_clipped = sprintf("%.1f",($file_clipped_bases/$file_total_bases)*100);
 	print STDERR "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
@@ -399,31 +352,31 @@ FILE: foreach my $clip_file (@clip_files) {
 	print PROCESSED "$fasta_file_name min bases=$min_bases max \%n=$max_n\n";
 	
 	
-	# check to see if there are more files to come this species, if not then potentially FTP the output file to commando
-	# first have to form what the next file name will be (for clip files)
-	
-	# see whether 1) there is another file in @clip_files and 2) the file belongs to the same species as this one
-	unless(defined($clip_files[$array_counter+1]) && ($clip_files[$array_counter+1] =~ m/$species/)){
-		
-		# no more files for this species so we can zip it and possibly transfer it
-		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
-		if ($move_files){
-			ftp_files("${output_file}.gz");
+	# Do we want to move the unprocessed files to commando?
+	if ($move_unprocessed){
+
+		ftp_files("$clip_file", "UNPROCESSED");
+		ftp_files("$fasta_file","UNPROCESSED");
 			
-			# if we are cleaning then we can also get rid of the processed gzip file
-			if($clean_files){
-				unlink("${output_file}.gz")  or die "Can't remove ${output_file}.gz\n";
-			}						
-		}
+		# if we are cleaning then we can also get rid of the processed gzip file
+		if($clean_files){
+			unlink("$clip_file")  or die "Can't remove $clip_file\n";
+			unlink("$fasta_file") or die "Can't remove $fasta_file\n";
+		}								
 	}
-	
-	print STDERR "\n";
-	
-	# do we want to remove the original (unprocessed) zipped files?
-	if ($clean_files){
+	# do we want to remove the unprocessed zipped files?
+	elsif ($clean_files){
 		unlink($clip_file)  or die "Can't remove $clip_file\n";
 		unlink($fasta_file) or die "Can't remove $clip_file\n";		
 	}
+	
+	if ($move_processed){
+		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
+		ftp_files("${output_file}.gz","PROCESSED");
+			
+	}
+	
+	print STDERR "\n";
 	
 }
 
@@ -467,7 +420,10 @@ sub INT_handler {
 
 sub ftp_files{
 	
-	my @files = @_;
+	my ($file,$mode) = @_;
+	my $target_dir;
+	$target_dir = "Processed_trace_reads"   if ($mode eq "PROCESSED");
+	$target_dir = "Unprocessed_trace_reads" if ($mode eq "UNPROCESSED");
 
 	########################
 	# BASIC FTP settings
@@ -475,7 +431,7 @@ sub ftp_files{
 	my $host = "commando.genomecenter.ucdavis.edu";
 	my $user = "tracedb";
 	my $password = "Korf2009";
-	my $dir = "tracedb_lite";
+	my $dir = "tracedb_lite/$target_dir";
 
  	my $timeout = 180;
 	my $ftp;
@@ -486,76 +442,15 @@ sub ftp_files{
 	$ftp->cwd($dir) or die "Can't change directory to $dir",$ftp->message;
 
 	# now transfer all files
-	foreach my $file (@files){
-		print STDERR "FTPing $file to $host\n";
-		$ftp->put($file) or die "Can't transfer $file to $host",$ftp->message;	
-	}
+	print STDERR "FTPing $file to $host\n";
+	$ftp->put($file) or die "Can't transfer $file to $host",$ftp->message;	
+
 
 	$ftp->quit or die "Can't quit FTP",$ftp->message;
 
 }
 
-sub check_commando{
-	
-	my $species = shift;
 
-	########################
-	# BASIC FTP settings
-	########################
-	my $host = "commando.genomecenter.ucdavis.edu";
-	my $user = "tracedb";
-	my $password = "Korf2009";
-	my $dir = "tracedb_lite";
-
- 	my $timeout = 180;
-	my $ftp;
-
-	$ftp = Net::FTP->new($host, Timeout => $timeout);
-	# can return back to script if can't make connection
-	if(!$ftp){
-		print STDERR "Cannot connect to $host: $@\n"; 
-		return(0);
-	}
-	
-	$ftp->login($user,$password) or die "Cannot login ", $ftp->message, "\n";
-	$ftp->binary;
-	$ftp->cwd($dir) or die "Can't change directory to $dir",$ftp->message;
-
-	my @fasta;
-	
-	# if there no files already copied to commando, we return zero and assume that no files exist
- 	unless(@fasta = $ftp->ls("${species}_processed_traces.[0-9]*.fa.*")){
-		$ftp->quit or die "Can't quit FTP",$ftp->message;
-		return(0);               
- 	}               
-
-	# else we grab the numerical suffix of the last file there and return it's suffix instead
-    my $last_file = $fasta[-1];
-    $last_file =~ m/${species}_processed_traces.([0-9]*).fa.*/;
-	my $suffix = $1;
-	$ftp->quit or die "Can't quit FTP",$ftp->message;
-    return($suffix);
-
-}
-
-sub check_local{
-	
-	my $species = shift;
-	my $dir = shift;
-
-	my @fasta;
-	# if there no files already copied to commando, we return zero
- 	unless(@fasta = glob("${dir}${species}_processed_traces.[0-9]*.fa.*")){
-		return(0);               
- 	}               
-
-	# else we grab the numerical suffix of the last file there and return it's suffix instead
-    my $last_file = $fasta[-1];
-    $last_file =~ m/${species}_processed_traces.([0-9]*).fa/;
-	my $suffix = $1;
-    return($suffix);
-
-}
 
 sub tidy_seq{
 #adds a new line character every 60 bases  
