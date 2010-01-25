@@ -80,28 +80,8 @@ $y_max = 80              if (!$y_max);
 my $path = getcwd;
 
 
-########################################################
-# 1) count trace reads 
-########################################################
-
-# want to track the total number of bases that are in the processed FASTA files
-my $nucleotides = 0;
-my @fasta_files = glob("*processed_traces*.fa");
-
-foreach my $fasta_file (@fasta_files){
-	open(IN, $fasta_file) or die "Can't open $fasta_file\n";
-	my $fasta = new FAlite(\*IN);
-
-	while (my $entry = $fasta->nextEntry) {
-		$nucleotides += length($entry->seq);
-	}
-	close IN;
-}
-
-
-
 ###################################
-# 2) read repeats from trf output
+# 1) read repeats from trf output
 ###################################
 
 my @matrix;
@@ -124,8 +104,7 @@ while (my $entry = $fasta->nextEntry) {
 	
 	# unless -copies is being used will change $z by effectively weighting the copy number by the unit_length
 	unless ($copies){
-		my $tandem_repeat_mass = ($z * $x);
-		$z = $tandem_repeat_mass / $nucleotides;
+		$z *= $x;
 	}
 	
 	$matrix[$x][$y] += $z;
@@ -139,7 +118,7 @@ close IN;
 
 
 ########################
-# 3) Fill @matrix array
+# 2) Fill @matrix array
 ########################
 my ($x_maxima, $y_maxima) = (0,0);
 # All axes will have some undefined values, e.g. there may not be any repeats at 45 nt length
@@ -203,24 +182,22 @@ exit;
 
 sub plot {
 	my ($script, $output, $data_file) = @_;
-	
-	my $title;
-	$title = "$species: $trf_counter repeats. Maxima at $x_maxima nt, $y_maxima% GC";
-	$title = "$species: $trf_counter repeats. Maxima at $x_maxima nt, $y_maxima% GC, CLEAN" if ($clean);
 
-	open(OUT, ">$script") or die;
+	# calculate sequence size in Gbp
+	my $title = "$species: $trf_counter repeats. Maxima at $x_maxima nt, $y_maxima% GC";
+	$title .= ", CLEAN" if ($clean);
 
+	open(OUT, ">$script") or die "Couldn't open $script file\n";
 	print OUT "library(scatterplot3d)\n";
 	print OUT "pdf(\"$path/$output\")\n";
 	print OUT "data <- read.table(\"$path/$data_file\")\n";
 	print OUT "scatterplot3d(data,xlab=\"Repeat unit length (nt)\",ylab=\"GC%\",";
 	if($copies){
-		print OUT "zlab=\"Copy number\",";		
+		print OUT "zlab=\"Tandem Repeat Copy number\",";		
 	}
 	else{
-		print OUT "zlab=\"Tandem repeat mass\",";
+		print OUT "zlab=\"Tandem Repeat Mass\",";
 	}
-
 
 	print OUT "xlim=c($x_min,$x_max)," if ($x_min && $x_max);
 	print OUT "ylim=c($y_min,$y_max)," if ($y_min && $y_max);
@@ -244,7 +221,7 @@ sub get_plot_data {
 	my $seq = uc $entry->seq;
 	my $gc = gc($seq);
 
-	my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) (D=\d+) L=(\d+) F=(\d+)% P=(\S+)/;
+	my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) D=(\d+) L=(\d+) F=(\d+)% P=(\S+)/;
 	return ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent, $gc);
 }
 
