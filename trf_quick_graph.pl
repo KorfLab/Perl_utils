@@ -79,8 +79,29 @@ $y_max = 80              if (!$y_max);
 
 my $path = getcwd;
 
+
+########################################################
+# 1) count trace reads 
+########################################################
+
+# want to track the total number of bases that are in the processed FASTA files
+my $nucleotides = 0;
+my @fasta_files = glob("*processed_traces*.fa");
+
+foreach my $fasta_file (@fasta_files){
+	open(IN, $fasta_file) or die "Can't open $fasta_file\n";
+	my $fasta = new FAlite(\*IN);
+
+	while (my $entry = $fasta->nextEntry) {
+		$nucleotides += length($entry->seq);
+	}
+	close IN;
+}
+
+
+
 ###################################
-# 1) read repeats from trf output
+# 2) read repeats from trf output
 ###################################
 
 my @matrix;
@@ -89,18 +110,23 @@ my ($max_x, $max_y, $max_z) = (0, 0, 0);
 my $trf_counter = 0;
 
 open(IN, $trf) or die "Can't open $trf file\n";
-
 my $fasta = new FAlite(\*IN);
 
 while (my $entry = $fasta->nextEntry) {
 	$trf_counter++;
 	my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent, $gc) = get_plot_data($entry);
 	
+	# also add duplicates to $trf counter
+	$trf_counter += $duplicates;
+	
 	# add info to a 3-dimensional matrix
 	my ($x, $y, $z) = ($unit_length, $gc, $copy_number);
 	
 	# unless -copies is being used will change $z by effectively weighting the copy number by the unit_length
-	($z *= $x) unless ($copies);
+	unless ($copies){
+		my $tandem_repeat_mass = ($z * $x);
+		$z = $tandem_repeat_mass / $nucleotides;
+	}
 	
 	$matrix[$x][$y] += $z;
 	
@@ -111,8 +137,9 @@ while (my $entry = $fasta->nextEntry) {
 close IN;
  
 
+
 ########################
-# 2) Fill @matrix array
+# 3) Fill @matrix array
 ########################
 my ($x_maxima, $y_maxima) = (0,0);
 # All axes will have some undefined values, e.g. there may not be any repeats at 45 nt length
