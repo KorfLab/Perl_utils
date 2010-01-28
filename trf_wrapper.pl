@@ -35,6 +35,7 @@ my $min_length; # minimum length of repeat unit
 my $low_repeat_cutoff; # what percentage of the read length should be occupied by repeats?
 my $high_repeat_cutoff; # what fraction of read length will we use for our 'high repeat fraction' repeats
 my $output_number; # allow the numbering of tandem repeats in output file to start from the last number used
+my $slim; # remove duplicates from trf file and create a new 'slim' trf file
 
 GetOptions ("file=s"      => \$file,
 			"allfiles"    => \$allfiles,
@@ -50,6 +51,7 @@ GetOptions ("file=s"      => \$file,
 		    "low_repeat_cutoff:f" => \$low_repeat_cutoff,
 		    "high_repeat_cutoff:f" => \$high_repeat_cutoff,
 		    "output_number:i" => \$output_number,
+		    "slim" => \$slim
 			);
 
 
@@ -91,7 +93,7 @@ die "min_repeat_fraction must be lower than high_repeat_cutoff\n" if ($low_repea
 
 # usage
 die "
-usage: trf.pl [options]
+usage: trf_wrapper.pl [options]
 options:
   -file <fasta file>
   -allfiles <directory name containing fasta files>
@@ -230,7 +232,7 @@ print STDERR "Total amount of tandem repeats in excluded repeat fraction (<$low_
 # this step will produce a *.slim.trf which will remove identical duplicates
 # and add a count of the duplicates in the FASTA header. This can sometimes half the size
 # of the trf output file
-remove_duplicates($trf_file);
+remove_duplicates($trf_file) if ($slim);
 
 
 
