@@ -108,6 +108,7 @@ options:
   -length (minimum repeat length) [$min_length]
   -min_repeat_fraction (minimum proportion of trace read that has to be repeat) [$low_repeat_cutoff]
   -high_repeat_cutoff (proportion of trace read that has to be repeat for HRF file) [$high_repeat_cutoff]
+  -slim : remove duplicates from final trf output file and make a new 'slim' file
 " unless ($file or $allfiles);
 
 # if we have one file (-file option) add to @files array and loop through that
