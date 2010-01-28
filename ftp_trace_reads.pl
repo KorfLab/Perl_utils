@@ -67,7 +67,7 @@ die "-one_file option must specify a 3 digit number (use leading zeroes if neces
 #
 ################################
 
-$max_files = 20    if (!$max_files);
+$max_files = 5     if (!$max_files);
 $timeout = 180     if (!$timeout);
 $sleep = 10        if (!$sleep);
 $max_attempts = 5  if (!$max_attempts);

@@ -411,6 +411,11 @@ sub remove_duplicates{
 	}       
 	close(FASTA);
 
+	# if we have an empty file we can exit 
+	if($counter == 0){
+		print "WARNING: $trf_file is empty\n";
+		return(0);
+	}
 
 	# now loop through @data structure to find duplicate entries
 	my $duplicates = 0;

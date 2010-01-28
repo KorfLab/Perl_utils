@@ -46,7 +46,7 @@ GetOptions ("dir:s"             => \$dir,
 
 
 # set defaults if not specified on command line
-$min_bases = 60    if (!$min_bases);
+$min_bases = 100    if (!$min_bases);
 $max_n = 5         if (!$max_n);
 die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
