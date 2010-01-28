@@ -221,8 +221,16 @@ sub get_plot_data {
 	my $seq = uc $entry->seq;
 	my $gc = gc($seq);
 
-	my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) D=(\d+) L=(\d+) F=(\d+)% P=(\S+)/;
-	return ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent, $gc);
+	# need to handle the data differently if it comes from the the 'slim' version of the TRF output file 
+	if($trf =~ m/high.slim.trf/){
+		my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) D=(\d+) L=(\d+) F=(\d+)% P=(\S+)/;
+		return ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent, $gc);
+	}
+	else{
+		# just use a zero value for duplicates field
+		my ($id, $copy_number, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) L=(\d+) F=(\d+)% P=(\S+)/;
+		return ($id, $copy_number, 0, $unit_length, $repeat_fraction, $parent, $gc);		
+	}
 }
 
 
