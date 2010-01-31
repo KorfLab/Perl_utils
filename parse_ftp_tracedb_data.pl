@@ -212,12 +212,16 @@ FILE: foreach my $anc_file (@anc_files) {
 
 		# read line into array
 		my @fields = split (/\t/,$line);
-		my ($qual_left, $qual_right, $vec_left, $vec_right, $ti, $trace_type) = (@fields[12..15],$fields[57],$fields[62]);
+		my ($qual_left, $qual_right, $vect_left, $vect_right, $ti, $trace_type) = (@fields[12..15],$fields[57],$fields[62]);
 
-		# decide which left/right values to use
-		my ($left,$right) = ($qual_left,$qual_right);
-		$left = $vec_left   if ($vec_left > $qual_left);
-		$right = $vec_right if ($vec_right < $qual_right);
+		# set default clip left value to 0 (no clipping) and default right to '1000000' (because we don't know how long the sequence is, just playing safe)
+		my ($left,$right) = (0,1000000);
+		
+		# can we replace these default values?
+		($left = $qual_left) if ($qual_left && ($qual_left > 0));
+		($left = $vect_left) if ($vect_left && ($vect_left > $left));
+		($right = $qual_right) if ($qual_right);
+		($right = $vect_right) if ($vect_right && ($vect_right < $right));
 
 		# load up hashes
 		$ti_to_trace_type{$ti} = $trace_type;
