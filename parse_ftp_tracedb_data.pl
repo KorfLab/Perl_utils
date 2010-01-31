@@ -14,14 +14,22 @@ use FAlite;
 use Getopt::Long;
 use Net::FTP;
 
-# turn on autoflushing off buffer
-$| = 1;
+###############################
+#
+#  Set some environment variables
+#
+################################
 
-# Need this or else FTP won't work!
-$ENV{FTP_PASSIVE} = 1;
+$ENV{FTP_PASSIVE} = 1; # Need this or else FTP won't work!
+$SIG{'INT'} = 'INT_handler'; # Want to handle signal interrupts
 
-$SIG{'INT'} = 'INT_handler'; # for handling signal interrupts
 
+
+###############################
+#
+#  Command-line options
+#
+################################
 
 my $dir;              # directory to look for *.gz files
 my $min_bases;        # minimum number off bases that you need in a sequence after clipping to keep it
@@ -31,7 +39,7 @@ my $verbose;          # turn on extra output - e.g. errors for traces that were 
 my $move_processed;   # ftp unprocessed trace read files to commando
 my $move_unprocessed; # ftp the new processed trace read files to commando
 my $clean_files;      # remove existing gzip files after transfer
-my $stop;             # stop script when you reach species starting with specified letters
+my $help;             # display help
 
 GetOptions ("dir:s"             => \$dir,
 			"min_bases:i"       => \$min_bases,
@@ -40,38 +48,64 @@ GetOptions ("dir:s"             => \$dir,
 			"ignore_processed"  => \$ignore_processed,
 			"move_processed"    => \$move_processed,
 			"move_unprocessed"  => \$move_unprocessed,
-			"stop:s"            => \$stop,                     
-			"clean_files"       => \$clean_files
-			);
+			"clean_files"       => \$clean_files,
+			"help"              => \$help);
 
 
-# set defaults if not specified on command line
+
+###############################################################
+#
+# Set some default values and check commmand line options
+#
+###############################################################
+
 $min_bases = 100    if (!$min_bases);
 $max_n = 5         if (!$max_n);
-die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
-$dir = "" if (!$dir);
+my $usage = "
+usage: parse_ftp_tracedb_data.pl -dir <directory> <options>
+  -dir <directory> : specify a directory containing fasta & anc files for a single species
+  -min_bases <int> : minimum number of bases required in a trace read *after* clipping. Default = 100
+  -max_n <percentage> : maximum allowable percentage of N characters in final sequence. Default = 5%
+  -ignore_processed : check 'trace_archive_processed_files.txt' and ignore any previously processed files
+  -move_processed : after processing, move the processed fasta files to commando (network disk)
+  -move_unprocessed : after processing, move the unprocessed fasta and and files to commando (network disk)
+  -clean_files : after processing, remove any remaining *.gz zip files
+  -help : this help
+\n";
+
+die "$usage" if (!$dir or $help);
 
 # add a trailing slash if none was specified to path (this is a bit of a kludge)
 ($dir .= "/") if ($dir && $dir !~ m/\/$/);
 
+
+
+###############################################################
+#
+# Main variables for script
+#
+###############################################################
 
 # need to keep track of:
 # 1) total traces parsed
 # 2) how many bases are clipped
 # 3) how many traces are rejected for being too short after clipping low quality bases, or have too few non-ATCG characters after dusting
 # 4) how many traces are rejected for containing > $max_n % Ns (calculated both before and after dusting)
-# 5) how many other errors there were (e.g. when clip left coordinate is greater than total length of sequence)
+# 5) traces rejected for having a non WGS-style trace type code, e.g. don't want EST reads
+# 6) how many other errors there were (e.g. when clip left coordinate is greater than total length of sequence)
+# 7) the various different trace type codes that we see in all of the sequences
 my $total_traces = 0;
 my $total_bases = 0;
 my $total_clipped_bases = 0;
 my $total_rejected_high_n = 0;
 my $total_rejected_high_n2 = 0;
+my $total_rejected_trace_type = 0;
 my $total_rejected_too_short = 0;
 my $total_rejected_too_short2 = 0;
 my $total_errors = 0;
+my %trace_type_codes;
 
-my $date;
 
 
 ################################################################################
@@ -80,10 +114,18 @@ my $date;
 #
 ################################################################################
 
-# open a file which will contain details of any files that have been processed
-# (so they can be ignored in future)
-my $processed_file_name = "trace_archive_processed_files.txt";
+print STDERR "\n# $0 started at ", `date`, "\n";
 
+
+
+############################################################################
+#
+# Check for 'trace_archive_processed_files.txt' and process if necessary
+#
+############################################################################
+
+# open a file which will contain details of any files that have been processed (so they can be ignored in future)
+my $processed_file_name = "trace_archive_processed_files.txt";
 
 if(-e "$processed_file_name"){
 	open(PROCESSED,">>$processed_file_name") or die "Can't append to $processed_file_name\n";
@@ -104,33 +146,35 @@ if($ignore_processed){
 	close(IN);
 }
 
-# Get list of clip files in current directory (or in $dir if specified)
-my @clip_files = glob("${dir}clip.*.gz");
 
-# simple counter to keep track of where we are in the array of all clip files
+
+###############################################################
+#
+# Loop through pairs of files
+#
+###############################################################
+
+# Get list of anc files in current directory (or in $dir if specified)
+my @anc_files = glob("${dir}anc.*.gz");
+
+# simple counter to keep track of where we are in the array of all anc files
 my $array_counter = -1;
 
-FILE: foreach my $clip_file (@clip_files) {
+FILE: foreach my $anc_file (@anc_files) {
 	$array_counter++; # will now be 0 for first file which is what we want
 	
 	# make copy of just file name without path
-	my $clip_file_name = $clip_file;
-	$clip_file_name =~ s/^$dir//;
+	my $anc_file_name = $anc_file;
+	$anc_file_name =~ s/^$dir//;
 	
 	# extract species name and file number
-	$clip_file_name =~ m/clip.(.*?)\..*?([0-9]+).gz/;
+	$anc_file_name =~ m/anc.(.*?)\..*?([0-9]+).gz/;
 	my ($species,$file_number) = ($1,$2);
-	
-	# stop if -stop is being used
-    if($stop && ($species =~ m/^$stop/)){
-    	print STDERR "\nLetter $stop has been reached...stopping program\n";
-        exit(0);
-     }
-	
+		
 	# make versions for fasta file name
-	my ($fasta_file, $fasta_file_name) = ($clip_file, $clip_file_name);
-	$fasta_file =~ s/clip/fasta/;
-	$fasta_file_name =~ s/clip/fasta/;
+	my ($fasta_file, $fasta_file_name) = ($anc_file, $anc_file_name);
+	$fasta_file =~ s/anc/fasta/;
+	$fasta_file_name =~ s/anc/fasta/;
 
 	
 	# no point proceeding if we can't find the accompanying FASTA file in the same directory
@@ -140,28 +184,56 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 
 	# now check to see whether this file has been processed before (if -ignore_processed option is in use)
-	if($ignore_processed && $previously_processed{$clip_file_name}){
-		print STDERR "$clip_file_name has been processed before, skipping to next file\n" if ($verbose);
+	if($ignore_processed && $previously_processed{$anc_file_name}){
+		print STDERR "$anc_file_name has been processed before, skipping to next file\n" if ($verbose);
 		next FILE;	
 	}
 
-  	print STDERR "Unzipping $clip_file\n" if ($verbose);	
 
-	# now process clip file to store information
-	# use two hashes which track clip left/right values for each TI
+	###############################################################
+	#
+	# Process ANC file
+	#
+	###############################################################
+	
+  	print STDERR "Unzipping $anc_file\n" if ($verbose);	
+
+	# now process anc file to store information
+	# use three hashes which track clip left/right values for each TI and the trace type code of each ti
 	my %ti_to_clip_left;
 	my %ti_to_clip_right;
+	my %ti_to_trace_type;
 
-	print STDERR "Processing $clip_file_name\n";	
+	print STDERR "Processing $anc_file_name\n";	
 
-	open(IN, "gunzip -c $clip_file |") || die "Can't open $clip_file: $? $!\n";	
+	open(IN, "gunzip -c $anc_file |") || die "Can't open $anc_file: $? $!\n";	
 	while(my $line = <IN>){
-		next if ($line =~ m/^TI/);
-		my ($ti,$left,$right) = split (/\s+/,$line);
+		next if ($line =~ m/^ACCESSION/); # skip header line
+
+		# read line into array
+		my @fields = split (/\t/,$line);
+		my ($qual_left, $qual_right, $vec_left, $vec_right, $ti, $trace_type) = (@fields[12..15],$fields[57],$fields[62]);
+
+		# decide which left/right values to use
+		my ($left,$right) = ($qual_left,$qual_right);
+		$left = $vec_left   if ($vec_left > $qual_left);
+		$right = $vec_right if ($vec_right < $qual_right);
+
+		# load up hashes
+		$ti_to_trace_type{$ti} = $trace_type;
 		$ti_to_clip_left{$ti} = $left;
 		$ti_to_clip_right{$ti} = $right;
+		$trace_type_codes{$trace_type}++;
 	}
 	close(IN);
+
+
+
+	###############################################################
+	#
+	# Process FASTA file
+	#
+	###############################################################
 
 	print STDERR "Processing $fasta_file_name\n";	
   
@@ -180,6 +252,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	my $file_rejected_too_short = 0;
 	my $file_rejected_high_n2 = 0;
 	my $file_rejected_too_short2 = 0;
+	my $file_rejected_trace_type = 0;
 	my $file_errors = 0;
 
     open(FASTA,"/usr/bin/gunzip -c $fasta_file | ") or die "Can't open pipe on gunzip $fasta_file: $? $!\n";
@@ -192,8 +265,6 @@ FILE: foreach my $clip_file (@clip_files) {
             $ti_to_header{$ti} = $header;
             $ti_to_seq{$ti} = $entry->seq;
             $ti_to_seqlength{$ti} = length($entry->seq);
-
-			#print STDERR "TI: $ti CLIP_RIGHT: $ti_to_clip_right{$ti}\n";
 			
             # update stats
 			$total_traces++;
@@ -203,17 +274,41 @@ FILE: foreach my $clip_file (@clip_files) {
     }       
     close(FASTA);
 
+
+	###############################################################
+	#
+	# Prepare new output file
+	#
+	###############################################################
+
 	# create output file name to be used for a couple of output files
 	my $output_file = "${species}_processed_traces.${file_number}.fa";
 
  	# also want to open a temporary file to write output that will then be subjected to the DUST filter
 	open(PREDUST, ">$output_file.predust") or die "Can't create $output_file.predust\n";
+	
+	
+	
+	###############################################################
+	#
+	# Loop through all information for each trace read
+	#
+	###############################################################
 				
 	print STDERR "Looping through all traces\n";
 	
 	# now loop through all the TIs and clip sequence if necessary
 	TRACE: foreach my $ti (sort {$a <=> $b} keys %ti_to_seq){
 		my $length = $ti_to_seqlength{$ti};
+
+
+		# first check trace type code of sequence, and reject if it is of the wrong type
+		# we only want to keep randomly sequenced genomic DNA at the chromosome or genomic level
+		if($ti_to_trace_type{$ti} ne "WGS" and $ti_to_trace_type{$ti} ne "WCS"){
+			$file_rejected_trace_type++;
+			$total_rejected_trace_type++;
+			next TRACE;
+		}
 
 		# set clip left value to zero and set clip right-values to the length of sequence as we want to see if there are values that are lower than this		
 		my $left = 0;
@@ -227,16 +322,16 @@ FILE: foreach my $clip_file (@clip_files) {
 
 		# some clip_right values are greater than the length of the sequence, in which case we can change to
 		# set them to the sequence length, i.e. no right clipping
-		($clip_right = $length) if ($clip_right > $length);
+		($clip_right = $length)  if ($clip_right > $length);
 
 		# for the right-fields, need to remember that a zero value just means no clip information is present
-		($right = $clip_right)   if (($clip_right < $right)   && ($clip_right   != 0));
+		($right = $clip_right)   if (($clip_right < $right) && ($clip_right != 0));
 
 		# have some basic sanity checks to catch errors		
 		if(($clip_left > $length) || ($left > $right)){
 			$file_errors++;
 			$total_errors++;
-			print STDERR "ERROR: Inconsistent information - TI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right\n" if ($verbose);
+			print STDERR "ERROR: Inconsistent information - TI:*$ti* LENGTH: $length clip_LEFT:$clip_left clip_RIGHT:$clip_right\n" if ($verbose);
 		
 			# no point going any further
 			next TRACE;
@@ -260,7 +355,7 @@ FILE: foreach my $clip_file (@clip_files) {
 				$total_rejected_too_short++;
 				$file_rejected_too_short++;
 				print STDERR "ERROR: $ti has $remaining_bases bases after clipping\n" if ($verbose);
-				next(TRACE);
+				next TRACE;
 			}
 			
 			# use substr to do the actual clipping and modify corresponding FASTA header with clipping info
@@ -288,12 +383,44 @@ FILE: foreach my $clip_file (@clip_files) {
 	close(PREDUST);
 
 
+	###############################################################
+	#
+	# Check that there are some sequences to process
+	#
+	###############################################################
+	
+	my $file_size = -s "$output_file.predust";
+	if($file_size == 0){
+		print STDERR "$fasta_file_name and $anc_file_name do not contain any sequences that we can use, skipping to next file\n";
+		unlink ("$output_file.predust") or die "Can't remove $output_file.predust\n";
+
+		# update processed file information, include settings used to process files
+		print PROCESSED "$anc_file_name min bases=$min_bases max \%n=$max_n\n";
+		print PROCESSED "$fasta_file_name min bases=$min_bases max \%n=$max_n\n";
+		
+		next FILE;
+	}
+
+	###############################################################
+	#
+	# Run DUST filter over file and create final output file
+	#
+	###############################################################
+
 	# now need to run the dust program to filter low complexity regions from reads
 	print STDERR "Filtering sequences with DUST\n";
 	system("dust $output_file.predust > $output_file.dust") && die "Can't run dust program on $output_file.predust\n";
-
+	
  	# open main output file to hold processed sequences
 	open(OUT,">$output_file") or die "Can't create $output_file\n";	
+
+
+
+	###############################################################
+	#
+	# Process DUSTed file and apply final set of selection criteria
+	#
+	###############################################################
 
 	# open dusted file and filter sequences
 	open(DUST,"<$output_file.dust") or die "Can't open $output_file.dust\n";	
@@ -331,43 +458,34 @@ FILE: foreach my $clip_file (@clip_files) {
 		}
 	}
 	
-	# clean up
+	
+	###############################################################
+	#
+	# Clean up and move files as necessary
+	#
+	###############################################################
+	
 	close(DUST);
 	unlink("$output_file.predust") or die "Can't remove $output_file.predust\n";
 	unlink("$output_file.dust")    or die "Can't remove $output_file.dust\n";
 	close(OUT);
 		
-	# print summary statistics for just this file
-	my $percent_clipped = sprintf("%.1f",($file_clipped_bases/$file_total_bases)*100);
-	print STDERR "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print STDERR "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($file_rejected_too_short > 0);
-	print STDERR "$file_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n" if ($file_rejected_high_n > 0);
-	print STDERR "$file_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n" if ($file_rejected_high_n2 > 0);
-	print STDERR "$file_rejected_too_short2 traces were rejected for being having less than $min_bases non-N characters after dusting\n" if ($file_rejected_too_short2 > 0);
-	print STDERR "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
-
-
-	# update processed file information, include settings used to process files
-	print PROCESSED "$clip_file_name min bases=$min_bases max \%n=$max_n\n";
-	print PROCESSED "$fasta_file_name min bases=$min_bases max \%n=$max_n\n";
-	
-	
 	# Do we want to move the unprocessed files to commando?
 	if ($move_unprocessed){
 
-		ftp_files("$clip_file", "UNPROCESSED");
+		ftp_files("$anc_file", "UNPROCESSED");
 		ftp_files("$fasta_file","UNPROCESSED");
 			
 		# if we are cleaning then we can also get rid of the processed gzip file
 		if($clean_files){
-			unlink("$clip_file")  or die "Can't remove $clip_file\n";
+			unlink("$anc_file")  or die "Can't remove $anc_file\n";
 			unlink("$fasta_file") or die "Can't remove $fasta_file\n";
 		}								
 	}
 	# do we want to remove the unprocessed zipped files?
 	elsif ($clean_files){
-		unlink($clip_file)  or die "Can't remove $clip_file\n";
-		unlink($fasta_file) or die "Can't remove $clip_file\n";		
+		unlink($anc_file)  or die "Can't remove $anc_file\n";
+		unlink($fasta_file) or die "Can't remove $anc_file\n";		
 	}
 	
 	if ($move_processed){
@@ -376,13 +494,41 @@ FILE: foreach my $clip_file (@clip_files) {
 			
 	}
 	
+	
+	###############################################################
+	#
+	# Print summary stats for this file
+	#
+	###############################################################
+	
+	my $percent_clipped = sprintf("%.1f",($file_clipped_bases/$file_total_bases)*100);
+	print STDERR "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print STDERR "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($file_rejected_too_short > 0);
+	print STDERR "$file_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n" if ($file_rejected_high_n > 0);
+	print STDERR "$file_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n" if ($file_rejected_high_n2 > 0);
+	print STDERR "$file_rejected_too_short2 traces were rejected for being having less than $min_bases non-N characters after dusting\n" if ($file_rejected_too_short2 > 0);
+	print STDERR "$file_rejected_trace_type traces were rejected for not being of a WGS/WCS/SHOTGUN type\n" if ($file_rejected_trace_type > 0);
+	print STDERR "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
+
+
+	# update processed file information, include settings used to process files
+	print PROCESSED "$anc_file_name min bases=$min_bases max \%n=$max_n\n";
+	print PROCESSED "$fasta_file_name min bases=$min_bases max \%n=$max_n\n";
+	
 	print STDERR "\n";
 	
 }
 
 close(PROCESSED);
 
-# print summary statistics for all files examined so far, across all species
+
+
+###############################################################
+#
+# Print summary stats for all processed files
+#
+###############################################################
+
 my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
 print STDERR "\n\n======================================================\n\n";
 print STDERR "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
@@ -390,19 +536,36 @@ print STDERR "TOTAL: $total_rejected_too_short traces were rejected for being to
 print STDERR "TOTAL: $total_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n";
 print STDERR "TOTAL: $total_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n";
 print STDERR "TOTAL: $total_rejected_too_short2 traces were rejected for having less than $min_bases non-N characters after dusting\n";
+print STDERR "TOTAL: $total_rejected_trace_type traces were rejected for not being random genomic shotgun sequence (WGS or WCS)\n" if ($total_rejected_trace_type > 0);
 print STDERR "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
-print STDERR "======================================================\n\n";
 
+# print out details of all trace type codes
+print STDERR "Breakdown of all trace type codes in all files:\n";
+
+foreach my $trace_type (sort keys (%trace_type_codes)){
+	my $percent = sprintf("%.1f",($trace_type_codes{$trace_type}/$total_traces)*100);
+	print STDERR "$trace_type $trace_type_codes{$trace_type} ($percent%)\n";
+}
+print STDERR "\n======================================================\n\n";
+
+print STDERR "# $0 started at ", `date`, "\n";
 exit(0);
 
 
 
+###############################
+#
+#
+#   S U B R O U T I N E S
+#
+#
+################################
 
 # signal event handler in case of interrupts (Ctrl+C)
 sub INT_handler {
 	
 	# print final statistic of how many bases were clipped
-	$date = `date`; 
+	my $date = `date`; 
 	chomp($date);
 	
 	my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
