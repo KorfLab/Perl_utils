@@ -73,7 +73,7 @@ usage: ftp_trace_reads.pl <options>
   -help : this help
 \n";
 
-die "$usage" if (!$species_list && !$one_file && !$ls);
+die "$usage" if (!$species_list && !$one_species && !$ls);
 die "$usage" if ($help);
 die "Use either -one_species <species name> or -species_list <file of species names>, but not both\n" if ($species_list && $one_species);
 die "-one_file option must specify a 3 digit number (use leading zeroes if necessary)\n" if ($one_file && ($one_file !~ m/^[0-9]{3}$/));
