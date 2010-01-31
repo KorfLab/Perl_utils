@@ -36,6 +36,7 @@ my $low_repeat_cutoff; # what percentage of the read length should be occupied b
 my $high_repeat_cutoff; # what fraction of read length will we use for our 'high repeat fraction' repeats
 my $output_number; # allow the numbering of tandem repeats in output file to start from the last number used
 my $slim; # remove duplicates from trf file and create a new 'slim' trf file
+my $help; # print help
 
 GetOptions ("file=s"      => \$file,
 			"allfiles"    => \$allfiles,
@@ -51,7 +52,8 @@ GetOptions ("file=s"      => \$file,
 		    "low_repeat_cutoff:f" => \$low_repeat_cutoff,
 		    "high_repeat_cutoff:f" => \$high_repeat_cutoff,
 		    "output_number:i" => \$output_number,
-		    "slim" => \$slim
+		    "slim"        => \$slim,
+		    "help"        => \$help
 			);
 
 
@@ -89,10 +91,10 @@ print STDERR "\n# $0 started at ", `date`, "\n";
 ################################
 
 die "Specify -file option for single fasta file, or -allfiles option to process all files in current directory\n" if ($file && $allfiles);
-die "min_repeat_fraction must be lower than high_repeat_cutoff\n" if ($low_repeat_cutoff >= $high_repeat_cutoff);
+die "low_repeat_cutoff must be lower than high_repeat_cutoff\n" if ($low_repeat_cutoff >= $high_repeat_cutoff);
 
 # usage
-die "
+my $usage = "
 usage: trf_wrapper.pl [options]
 options:
   -file <fasta file>
@@ -106,10 +108,15 @@ options:
   -period (maximum period length) [$max_period]
   -copies (minimum copies) [$min_copies]
   -length (minimum repeat length) [$min_length]
-  -min_repeat_fraction (minimum proportion of trace read that has to be repeat) [$low_repeat_cutoff]
+  -low_repeat_cutoff (minimum proportion of trace read that has to be repeat) [$low_repeat_cutoff]
   -high_repeat_cutoff (proportion of trace read that has to be repeat for HRF file) [$high_repeat_cutoff]
   -slim : remove duplicates from final trf output file and make a new 'slim' file
-" unless ($file or $allfiles);
+  -help : print this help
+";
+
+die $usage if ($help);
+die $usage unless ($file or $allfiles);
+
 
 # if we have one file (-file option) add to @files array and loop through that
 # otherwise add all fasta files in current directory to @files array
@@ -234,8 +241,6 @@ print STDERR "Total amount of tandem repeats in excluded repeat fraction (<$low_
 # and add a count of the duplicates in the FASTA header. This can sometimes half the size
 # of the trf output file
 remove_duplicates($trf_file) if ($slim);
-
-
 
 
 print STDERR "\n# $0 finished at ", `date`, "\n";
