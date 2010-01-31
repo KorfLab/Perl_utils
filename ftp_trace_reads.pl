@@ -2,7 +2,7 @@
 #
 # ftp_trace_reads.pl
 #
-# A script to download trace reads of selected species from NCBI trace archive
+# A script to download trace reads and ancillary information of selected species from NCBI trace archive
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
@@ -36,28 +36,45 @@ my $debug;            # whether to turn on debugging in FTP module
 my $timeout;          # set timeout value for Net::FTP module
 my $sleep;            # how long to sleep for before retrying ftp download
 my $max_attempts;     # how many attempts to download one file before giving up
-my $min_traces;       # what is the minimum number of traces that each species needs to have to continue processing it
 my $species_list;     # optionally specify a file which contains species (quicker than looking up via separate script)
 my $prog;             # specify path to a program that will produce list of (eukaryotic) species
 my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
 my $ls;               # just list what you will be fetching without actually fetching it
 my $one_file;         # just grab files with the specified number
 my $one_species;      # just grab files from the specified species
+my $help;             # display help
 
 GetOptions ("max_files:i"      => \$max_files,
 			"debug"            => \$debug,
 			"timeout:i"        => \$timeout,
 			"sleep:i"          => \$sleep,
 			"max_attempts:i"   => \$max_attempts,
-			"min_traces:i"     => \$min_traces,
 			"species_list:s"   => \$species_list,
-			"prog:s"           => \$prog,
+			"prog=s"           => \$prog,
 			"ignore_processed" => \$ignore_processed,
 			"ls"	           => \$ls,
 			"one_file=s"       => \$one_file,
 			"one_species=s"    => \$one_species);
 
 # a quick couple of sanity checks on command line options
+my $usage = "
+usage: ftp_trace_reads.pl <options>
+  -species_list <file> : supply a file containing species names to grab
+  -ls : just list files for each species but do not fetch them
+  -one_species <species> : name a single species to get only data for that species
+  -one_file <xxx> : specify a 3 digit number to grab only that file for selected species
+  -max_files <int> : how many files to try to download? Default = 5
+  -ignore_processed : skip any files that are listed in a file called 'trace_archive_processed_files.txt' 
+  -prog <script> : specify a program that will return a list of species to get (e.g. find_eukaryotes_in_trace_archive)
+  -max_attempts <int> : how many times should FTP try to grab a file before giving up
+  -timeout <int> : timeout value in seconds for Net::FTP module
+  -sleep <int> : how many seconds to sleep before retrying a fetch of files
+  -debug : turn on debugging output in FTP module
+  -help : this help
+\n";
+
+die "$usage" if (!$species_list && !$one_file && !$ls);
+die "$usage" if ($help);
 die "Use either -one_species <species name> or -species_list <file of species names>, but not both\n" if ($species_list && $one_species);
 die "-one_file option must specify a 3 digit number (use leading zeroes if necessary)\n" if ($one_file && ($one_file !~ m/^[0-9]{3}$/));
 
@@ -71,8 +88,6 @@ $max_files = 5     if (!$max_files);
 $timeout = 180     if (!$timeout);
 $sleep = 10        if (!$sleep);
 $max_attempts = 5  if (!$max_attempts);
-$min_traces = 1000 if (!$min_traces);
-$prog = glob("~/Work/bin/find_eukaryotes_in_trace_archive.pl -min_traces $min_traces") if (!$prog);
 if (!$debug){$debug = 0}
 else{$debug = 1}
 
@@ -188,12 +203,12 @@ SPECIES: foreach my $species (@taxa){
 			last FILE;
 		}	
 		
-		# grab files in pairs, fasta + clip (they should pair up) 
+		# grab files in pairs, fasta + anc file (they should pair up) 
 		my ($fasta_return) = get_files($dir,$species,$index,"fasta",1);
 		print STDERR "get_files (FASTA) failed for $species $index\n" if (!$fasta_return);
 		
-		my ($clip_return) = get_files($dir,$species,$index,"clip",1);
-		print STDERR "get_files (CLIP) failed for $species $index\n" if (!$clip_return);
+		my ($anc_return) = get_files($dir,$species,$index,"anc",1);
+		print STDERR "get_files (CLIP) failed for $species $index\n" if (!$anc_return);
 		
 	}
 	# tidy up
@@ -220,9 +235,6 @@ exit;
 
 sub get_files{
 	my ($dir,$species,$index,$type,$attempt) = @_;
-
-	# note that some files exist on the ftp site with a 'qualityless' part to their file name, e.g. clip.drosophila_melanogaster.qualityless.004.gz
-	# these are rare and non-standard so we will just ignore them
 
 	# format file name	
 	my $file = "$type.$species.$index.gz";
@@ -314,7 +326,6 @@ sub get_species_names{
 # signal event handler in case of interrupts (Ctrl+C)
 sub INT_handler {
 	
-	# print final statistic of how many bases were clipped
 	my $date = `date`; 
 	chomp($date);
 	
