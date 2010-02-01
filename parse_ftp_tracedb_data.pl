@@ -207,12 +207,49 @@ FILE: foreach my $anc_file (@anc_files) {
 	print STDERR "Processing $anc_file_name\n";	
 
 	open(IN, "gunzip -c $anc_file |") || die "Can't open $anc_file: $? $!\n";	
+
+
+	# can't rely on columns being in the same place, need to work out which columns we need by looping through all fields of header line until we get a match 
+	# can just process header line outside of main loop
+	my $header_line = <IN>;
+	my @header_fields = split (/\t/,$header_line);
+
+	# index variables for different desired fields in input file
+	my ($cql,$cqr,$cvl,$cvr,$tii,$ttc);
+	my $c = 0;
+
+	foreach my $field (@header_fields){
+
+		if ($field eq "CLIP_QUALITY_LEFT"){
+			$cql = $c;
+		}
+		elsif ($field eq "CLIP_QUALITY_RIGHT"){
+			$cqr = $c;
+		}
+		elsif ($field eq "CLIP_VECTOR_LEFT"){
+			$cvl = $c;
+		}
+		elsif ($field eq "CLIP_VECTOR_RIGHT"){
+			$cvr = $c;
+		}
+		elsif ($field eq "TI"){
+			$tii = $c;
+		}
+		elsif ($field eq "TRACE_TYPE_CODE"){
+			$ttc = $c;
+		}
+
+		$c++;
+	}
+	
+	print STDERR "Extracting information from $anc_file_name using columns $cql,$cqr,$cvl,$cvr,$tii, and $ttc\n";
+	
+	# now process rest of file
 	while(my $line = <IN>){
-		next if ($line =~ m/^ACCESSION/); # skip header line
 
 		# read line into array
 		my @fields = split (/\t/,$line);
-		my ($qual_left, $qual_right, $vect_left, $vect_right, $ti, $trace_type) = (@fields[12..15],$fields[57],$fields[62]);
+		my ($qual_left, $qual_right, $vect_left, $vect_right, $ti, $trace_type) = ($fields[$cql],$fields[$cqr],$fields[$cvl],$fields[$cvr],$fields[$tii],$fields[$ttc]);
 
 		# set default clip left value to 0 (no clipping) and default right to '1000000' (because we don't know how long the sequence is, just playing safe)
 		my ($left,$right) = (0,1000000);
