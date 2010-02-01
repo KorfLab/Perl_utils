@@ -548,7 +548,7 @@ FILE: foreach my $anc_file (@anc_files) {
 	print STDERR "$file_rejected_high_n traces were rejected for containing more than $max_n% Ns before dusting\n" if ($file_rejected_high_n > 0);
 	print STDERR "$file_rejected_high_n2 traces were rejected for containing more than $max_n% Ns after dusting\n" if ($file_rejected_high_n2 > 0);
 	print STDERR "$file_rejected_too_short2 traces were rejected for being having less than $min_bases non-N characters after dusting\n" if ($file_rejected_too_short2 > 0);
-	print STDERR "$file_rejected_trace_type traces were rejected for not being of a WGS/WCS/SHOTGUN type\n" if ($file_rejected_trace_type > 0);
+	print STDERR "$file_rejected_trace_type traces were rejected for not being of a WGS/WCS type\n" if ($file_rejected_trace_type > 0);
 	print STDERR "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
 
 
