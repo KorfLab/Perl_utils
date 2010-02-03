@@ -173,9 +173,8 @@ FILE: foreach my $anc_file (@anc_files) {
 		
 	# make versions for fasta file name
 	my ($fasta_file, $fasta_file_name) = ($anc_file, $anc_file_name);
-	$fasta_file =~ s/^anc\./fasta\./;
+	$fasta_file =~ s/\/anc\./\/fasta\./;
 	$fasta_file_name =~ s/^anc\./fasta\./;
-
 	
 	# no point proceeding if we can't find the accompanying FASTA file in the same directory
 	if (! -e $fasta_file){
