@@ -236,7 +236,7 @@ sub get_plot_data {
 
 sub write_data_file {
 	my ($file, $m) = @_;
-	open(OUT, ">$file") or die;
+	open(OUT, ">$file") or die "Can't write to $file\n";
 	for (my $x = 0; $x < @$m; $x++) {
 		for (my $y = 0; $y < @{$m->[$x]}; $y++) {
 #			print OUT "$x $y $m->[$x][$y]\n";
