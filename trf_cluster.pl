@@ -267,8 +267,8 @@ my $local_cluster  = cluster_n_graph($qstack, 'local',  $local_peaks);
 #
 ##############################
 
-open(OUT, ">summary.txt") or die;
-print OUT "Summary for tandem repeat analysis\n";
+open(OUT, ">${species}_summary.txt") or die;
+print OUT "Summary for $species_name tandem repeat analysis\n";
 printf OUT "%d reads, %d tandem repeats, %d bp, %.4f GC\n", $reads, $trf_count, $nucleotides, $gc;
 my ($global_output, $global_top_length) = repeat_table('global', $global_cluster, $nucleotides, $global_peaks);
 my ($local_output, $local_top_length) = repeat_table('local', $local_cluster, $nucleotides, $local_peaks);
