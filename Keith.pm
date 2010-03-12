@@ -134,6 +134,15 @@ sub revcomp{
 	return ($revcomp);	
 }
 
+# produce a random integer between x and y
+sub get_random_integer{
+	my($min, $max) = @_; 
+
+    # Assumes that the two arguments are integers themselves! 
+    return $min if $min == $max; 
+    ($min, $max) = ($max, $min)  if  $min > $max; 
+    return $min + int rand(1 + $max - $min);
+}
 1;
 
 __END__
@@ -201,9 +210,17 @@ my ($z,$mean_a,$mean_b,$std_dev_a,$std_dev_b,$std_err_a,$std_err_b) = Keith::z_t
 Simply pass subroutine a DNA/RNA/protein sequence (just the sequence, not the header) as a 
 string and subroutine will tidy up sequence to be all upper case and just 60 characters per line.
 
+
 =head2 revcomp
 
 Returns the reverse complement of a DNA sequence
+
+
+=head2 get_random_integer
+
+Specify a minimum and maximum value, and this routine just calculates a random integer between those values
+
+
 
 =head1 AUTHOR
 
