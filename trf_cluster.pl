@@ -31,6 +31,7 @@ my $copies; # calculate z-axis of graph based on copy number rather than tandem 
 my $data; # keep the data file that is produced, it's deleted by default
 my $trf; # trf input file
 my $sample; # how many (randomly chosen) Tandem repeats to use for BLAST cluster analysis
+my $min_cluster_size; # how many sequences do you need to have in a cluster for it to count?
 my $x_min;
 my $x_max;
 my $y_min;
@@ -44,6 +45,7 @@ GetOptions ("local_peaks=i"    => \$local_peaks,
 			"mass_threshold=f" => \$mass_threshold,
 			"alignment_threshold=i" => \$alignment_threshold,
 			"blast_score=f" => \$blast_score,
+			"min_cluster_size=i" => \$min_cluster_size,
 			"copies" => \$copies,	
 			"data" => \$data,		
 			"trf=s" => \$trf,
@@ -69,8 +71,8 @@ $x_min = 1               if (!$x_min);
 $x_max = 600             if (!$x_max); 
 $y_min = 20              if (!$y_min); 
 $y_max = 80              if (!$y_max); 
-$sample = 100000         if (!$sample);
-
+$sample = 200000         if (!$sample);
+$min_cluster_size = 50   if (!$min_cluster_size);
 
 #############################
 # check command-line options
@@ -281,8 +283,6 @@ print OUT "\nGlobal alignment cluster nodes\n", `cat global.cluster.seqs`;
 print OUT "\nLocal alignment cluster nodes\n",`cat local.cluster.seqs`;
 close OUT;
 
-
-
 print STDERR "\n# $0 finished at ", `date`, "\n";
 
 
@@ -301,11 +301,11 @@ print STDERR "\n# $0 finished at ", `date`, "\n";
 sub repeat_table {
 	my ($mode, $cluster, $total, $limit) = @_;
 
+	#  keep track of how many clusters will be skipped due to low mass or low size
+	my $rejected = 0;
+
 	# first want to find the max centromere mass value
 	my $max_mass = 0;
-	# also keep track of how many clusters will be skipped
-	my $rejected = 0;
-	
 	foreach my $cluster (@$cluster) {
 		my $mass   = $cluster->{mass};
 		$max_mass = $mass if ($mass > $max_mass);
@@ -318,32 +318,53 @@ sub repeat_table {
 	# 	don't want to see details of 9 tiny little clusters
 	my $output .= "\nRepeats ($mode mode) - using mass threshold $threshold_percent\n";
 	
-	$output .= join("\t", 'Cluster', 'id#', 'length', 'gc', 'mean', 'stdev', 'depth', 'mass', 'frac') . "\n";
+	# for global output we will include mean and stdev of pairwise identities
+	if($mode eq "global"){
+		$output .= join("\t", 'Cluster', 'n', 'id#', 'length', 'gc', 'mean', 'stdev', 'depth', 'mass', 'frac') . "\n";		
+	} else {
+		$output .= join("\t", 'Cluster', 'n', 'id#', 'length', 'gc', 'depth', 'mass', 'frac') . "\n";
+	}
+	
 	my $count = 0;
 	my $top_cluster_length = 0;
 	
 	foreach my $cluster (@$cluster) {
+		my $size   = $cluster->{size};
+		# no point going any further if cluster is too small
+		if($size < $min_cluster_size){
+			$rejected++;
+			next;
+		}
+	
+		
+		# equally, no point continuing if mass is too low
+		my $mass   = $cluster->{mass};
+		if(($mass / $max_mass) <  $mass_threshold){
+			$rejected++;
+			next;
+		}
+	
 		my $id     = $cluster->{id};
 		my $depth  = $cluster->{depth};
-		my $mass   = $cluster->{mass};
 		my $match  = $cluster->{match};
-		my $mean   = $cluster->{mean};
-		my $stdev  = $cluster->{stdev};		
 		my $gc     = $id_to_gc{$id};
 		my $unit   = $id_to_repeat_unit_length{$id};
-
 		my $frac = sprintf("%f", $mass/$total);
-		if(($mass / $max_mass) >=  $mass_threshold){
-			$output .= join("\t", $count, $id, $id_to_repeat_unit_length{$id}, $id_to_gc{$id}, $mean, $stdev, int($depth), $mass, $frac) . "\n";
-			# want to grab the length of the top cluster
-			$top_cluster_length = $id_to_repeat_unit_length{$id} if ($count == 0);
+		
+		if($mode eq "global"){
+			my $mean   = $cluster->{mean};
+			my $stdev  = $cluster->{stdev};
+			$output .= join("\t", $count, $size, $id, $id_to_repeat_unit_length{$id}, $id_to_gc{$id}, $mean, $stdev, int($depth), $mass, $frac) . "\n";				
 		}
 		else{
-			$rejected++;
+			$output .= join("\t", $count, $size, $id, $id_to_repeat_unit_length{$id}, $id_to_gc{$id}, int($depth), $mass, $frac) . "\n";			
 		}
+		
+		# want to grab the length of the top cluster
+		$top_cluster_length = $id_to_repeat_unit_length{$id} if ($count == 0);
 		$count++;
 	}
-
+	
 	$output .= "\n";
 	
 	# check whether clusters 1 & 2 are very different in size and warn if not
@@ -354,7 +375,11 @@ sub repeat_table {
 		my $t_percent = $threshold * 100;
 		$output .= "WARNING: Top clusters are similar in size. Cluster #1 has a tandem repeat mass within $t_percent% of cluster #0\n" if (($size2/$size1) > $threshold);		
 	}
-	$output .= "NOTE: $rejected clusters are not reported due to having a tandem repeat mass less than $threshold_percent of cluster #0\n" if ($rejected);
+	if ($rejected){
+		$output .= "NOTE: $rejected clusters are not reported due to having a tandem repeat mass less than $threshold_percent of cluster #0,\n";
+		$output .= "or the cluster contained less than $min_cluster_size sequences\n"; 
+		
+	}
 	$output .= "\n";
 	
 	return ($output,$top_cluster_length);
@@ -386,7 +411,7 @@ sub cluster_n_graph {
 		# add percentage identity to hash, use query and subject IDs as combined key
 		# each pair might have multiple matches, so just consider first one we come across as this will be the highest score
 		unless (exists($identity{"${qid}_vs_${sid}"})){
-			$identity{"${qid}_vs_${sid}"} = $identity unless ($qid eq $sid); # no point adding self matches
+			$identity{"$qid-$sid"} = $identity unless ($qid eq $sid); # no point adding self matches
 		}
 		
 		# global vs local mode
@@ -497,6 +522,7 @@ sub cluster_n_graph {
 			depth => $depth{$top},
 			match => \@match,
 			mass => $mass{$top},
+			size => scalar(@match),
 		};		
 
 	}
@@ -533,32 +559,40 @@ sub cluster_n_graph {
 		my $datafile   = "$mode.cluster$i.data";
 	
 		# make id file for cluster $i. This is a list of the matches to the top hit for that cluster
-		open(LIST, ">$idfile") or die;
+		open(LIST, ">$idfile") or die "Can't write to $idfile $!";
 		
 		# will also store each pairwise identity in an array
 		my @identities = ();
-		
+		my $no_match = 0;
+#		$cluster[$i]{size} = @{$cluster[$i]{match}};
+#		print "Size = $cluster[$i]{size}\n";
+
 		for (my $j = 0; $j < @{$cluster[$i]{match}}; $j++) {
 			print LIST "tandem-${$cluster[$i]{match}}[$j]\n";
 
 			# can also now calculate average pairwise identity for current cluster
 			for (my $k = $j+1; $k < @{$cluster[$i]{match}}; $k++) {				
-				my $key = ${$cluster[$i]{match}}[$j] . "_vs_" . ${$cluster[$i]{match}}[$k];
-				# not all posssible pairwise comparisons will be in the blast output?
-				push(@identities,$identity{$key}) if exists($identity{$key});
+				my $key = ${$cluster[$i]{match}}[$j] . "-" . ${$cluster[$i]{match}}[$k];
+				# not all posssible pairwise comparisons will be in the blast output,  
+				# i.e. A matched B, and B matches C, but A does not match C even though they are all in cluster
+				$no_match++ if (($mode eq "global") && !exists($identity{$key}));
+				push(@identities,$identity{$key}) if (($mode eq "global") && exists($identity{$key}));
 			}
 		}
 		close LIST;
  
-		# calculate average pairwise identity and standard deviation
-		my $pairwise_comparisons = @identities;
-		my $average_identity = sprintf("%.2f", (sum @identities) / $pairwise_comparisons);
-		my $stdev = sprintf("%.2f",sqrt(sum(map {($_ - $average_identity) ** 2} @identities) / ($pairwise_comparisons-1)));
-		# add to cluster object
-		$cluster[$i]{mean} = $average_identity;
-		$cluster[$i]{stdev} = $stdev;
+		# calculate average pairwise identity and standard deviation (only if in global mode and you have at least 3 sequences in cluster)
+		if(($mode eq "global") && ($cluster[$i]{size} >= $min_cluster_size)){
+			my $pairwise_comparisons = @identities;	
+			my $average_identity = sprintf("%.2f", (sum @identities) / $pairwise_comparisons);
+			print STDERR "\n$i) n=$cluster[$i]{size} There were $no_match pairwise comparisons that were not in BLAST output (compared to $pairwise_comparisons that were)\n";
+			print STDERR "Average \%identity = $average_identity\n";				
+			
+			$cluster[$i]{mean}  = $average_identity;
+			$cluster[$i]{stdev} = sprintf("%.2f",sqrt(sum(map {($_ - $average_identity) ** 2} @identities) / ($pairwise_comparisons-1)));
+			
+		}
 		
-		print STDERR "Cluster $i) average pairwise identity = $average_identity, standard deviation = $stdev\n";			
 		
 		
 		# get sequences of matching IDs and write to file
