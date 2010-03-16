@@ -16,7 +16,7 @@ use Cwd;
 use DataBrowser;
 use Getopt::Long;
 use Keith;
-use List::Util 'shuffle';
+use List::Util qw(sum shuffle);
 
 ########################
 # Command line options
@@ -318,7 +318,7 @@ sub repeat_table {
 	# 	don't want to see details of 9 tiny little clusters
 	my $output .= "\nRepeats ($mode mode) - using mass threshold $threshold_percent\n";
 	
-	$output .= join("\t", 'Cluster', 'id#', 'length', 'gc', 'depth', 'mass', 'frac') . "\n";
+	$output .= join("\t", 'Cluster', 'id#', 'length', 'gc', 'mean', 'stdev', 'depth', 'mass', 'frac') . "\n";
 	my $count = 0;
 	my $top_cluster_length = 0;
 	
@@ -327,12 +327,14 @@ sub repeat_table {
 		my $depth  = $cluster->{depth};
 		my $mass   = $cluster->{mass};
 		my $match  = $cluster->{match};
+		my $mean   = $cluster->{mean};
+		my $stdev  = $cluster->{stdev};		
 		my $gc     = $id_to_gc{$id};
 		my $unit   = $id_to_repeat_unit_length{$id};
 
 		my $frac = sprintf("%f", $mass/$total);
 		if(($mass / $max_mass) >=  $mass_threshold){
-			$output .= join("\t", $count, $id, $id_to_repeat_unit_length{$id}, $id_to_gc{$id}, int($depth), $mass, $frac) . "\n";
+			$output .= join("\t", $count, $id, $id_to_repeat_unit_length{$id}, $id_to_gc{$id}, $mean, $stdev, int($depth), $mass, $frac) . "\n";
 			# want to grab the length of the top cluster
 			$top_cluster_length = $id_to_repeat_unit_length{$id} if ($count == 0);
 		}
@@ -340,7 +342,6 @@ sub repeat_table {
 			$rejected++;
 		}
 		$count++;
-#		last if $count++ == $limit;
 	}
 
 	$output .= "\n";
@@ -370,15 +371,24 @@ sub cluster_n_graph {
 	print STDERR "Parsing blast report in $mode mode... ";
 	my %hit;
 	
+	# will store details of percentage identity for all pairwise comparisons in a hash
+	my %identity;
+	
 	open(IN, "gunzip -c $blast |") or die;
 	while (<IN>) {
 		# grab a subset of BLAST output:
 		# query id, subject id, query start + end, subject start + end
 		my @f = split;
-		my ($q, $s, $qb, $qe, $sb, $se) = ($f[0],$f[1],$f[17],$f[18],$f[20],$f[21]);
+		my ($q, $s, $identity, $qb, $qe, $sb, $se) = ($f[0],$f[1],$f[10],$f[17],$f[18],$f[20],$f[21]);
 		my ($qid) = $q =~ /tandem-(\d+)/;
 		my ($sid) = $s =~ /tandem-(\d+)/;
 	
+		# add percentage identity to hash, use query and subject IDs as combined key
+		# each pair might have multiple matches, so just consider first one we come across as this will be the highest score
+		unless (exists($identity{"${qid}_vs_${sid}"})){
+			$identity{"${qid}_vs_${sid}"} = $identity unless ($qid eq $sid); # no point adding self matches
+		}
+		
 		# global vs local mode
 		if ($mode eq 'global') {
 			my $qlen = abs($qe - $qb) + 1;
@@ -512,6 +522,7 @@ sub cluster_n_graph {
 	# get sequences of each cluster and plot individual clusters
 	print STDERR "Processing clusters...";
 	for (my $i = 0; $i < @cluster; $i++) {
+		
 		#last if $i == $PEAKS;
 		last if (($cluster[$i]{mass} / $max_mass) < $mass_threshold);  
 		
@@ -523,11 +534,33 @@ sub cluster_n_graph {
 	
 		# make id file for cluster $i. This is a list of the matches to the top hit for that cluster
 		open(LIST, ">$idfile") or die;
-		foreach my $id (@{$cluster[$i]{match}}) {
-			print LIST "tandem-$id\n";
+		
+		# will also store each pairwise identity in an array
+		my @identities = ();
+		
+		for (my $j = 0; $j < @{$cluster[$i]{match}}; $j++) {
+			print LIST "tandem-${$cluster[$i]{match}}[$j]\n";
+
+			# can also now calculate average pairwise identity for current cluster
+			for (my $k = $j+1; $k < @{$cluster[$i]{match}}; $k++) {				
+				my $key = ${$cluster[$i]{match}}[$j] . "_vs_" . ${$cluster[$i]{match}}[$k];
+				# not all posssible pairwise comparisons will be in the blast output?
+				push(@identities,$identity{$key}) if exists($identity{$key});
+			}
 		}
 		close LIST;
-
+ 
+		# calculate average pairwise identity and standard deviation
+		my $pairwise_comparisons = @identities;
+		my $average_identity = sprintf("%.2f", (sum @identities) / $pairwise_comparisons);
+		my $stdev = sprintf("%.2f",sqrt(sum(map {($_ - $average_identity) ** 2} @identities) / ($pairwise_comparisons-1)));
+		# add to cluster object
+		$cluster[$i]{mean} = $average_identity;
+		$cluster[$i]{stdev} = $stdev;
+		
+		print STDERR "Cluster $i) average pairwise identity = $average_identity, standard deviation = $stdev\n";			
+		
+		
 		# get sequences of matching IDs and write to file
 		system("xdget -n -f $sample_trf $idfile > $seqfile") == 0 or die;
 	
