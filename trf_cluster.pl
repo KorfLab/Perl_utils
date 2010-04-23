@@ -62,17 +62,17 @@ GetOptions ("local_peaks=i"    => \$local_peaks,
 ################
 # set defaults
 ################
-$local_peaks = 10        if (!$local_peaks);
-$global_peaks = 10       if (!$global_peaks);
-$alignment_threshold = 5 if (!$alignment_threshold);
-$mass_threshold = 0.1    if (!$mass_threshold);
-$blast_score = 50        if (!$blast_score);
-$x_min = 1               if (!$x_min); 
-$x_max = 600             if (!$x_max); 
-$y_min = 20              if (!$y_min); 
-$y_max = 80              if (!$y_max); 
-$sample = 200000         if (!$sample);
-$min_cluster_size = 50   if (!$min_cluster_size);
+$local_peaks = 10         if (!$local_peaks);
+$global_peaks = 10        if (!$global_peaks);
+$alignment_threshold = 10 if (!$alignment_threshold);
+$mass_threshold = 0.1     if (!$mass_threshold);
+$blast_score = 50         if (!$blast_score);
+$x_min = 1                if (!$x_min); 
+$x_max = 600              if (!$x_max); 
+$y_min = 20               if (!$y_min); 
+$y_max = 80               if (!$y_max); 
+$sample = 200000          if (!$sample);
+$min_cluster_size = 50    if (!$min_cluster_size);
 
 #############################
 # check command-line options
@@ -308,7 +308,9 @@ sub repeat_table {
 	my $max_mass = 0;
 	foreach my $cluster (@$cluster) {
 		my $mass   = $cluster->{mass};
-		$max_mass = $mass if ($mass > $max_mass);
+		if ($mass > $max_mass){
+			$max_mass = $mass;
+		}
 	}
 	
 	my $threshold_percent = "%". ($mass_threshold * 100);
@@ -425,8 +427,24 @@ sub cluster_n_graph {
 			my $sdif = abs($id_to_repeat_unit_length{$sid} - $slen);
 			
 			# only want to keep details of the BLAST match if it is a true global alignment
-			# so reject if $qdif or $sdif is greater than some small value (default $alignment_threshold = 5)
-			next if ($qdif > $alignment_threshold or $sdif > $alignment_threshold);
+			# so reject if $qdif or $sdif is greater than some small value (default $alignment_threshold = 10)
+			# but want to be a bit tighter if repeats are short, so effectively make threshold = 10% of 
+			# of tandem repeat length for when the repeat length is <= 100 nt, otherwise use $alignment_threshold
+			
+			if($id_to_repeat_unit_length{$qid} <= 100){
+				next if ($qdif > ($id_to_repeat_unit_length{$qid} * 0.1));
+				
+			} elsif ($qdif > $alignment_threshold){
+				next;
+			}
+
+			if($id_to_repeat_unit_length{$sid} <= 100){
+				next if ($sdif > ($id_to_repeat_unit_length{$sid} * 0.1));
+				
+			} elsif ($sdif > $alignment_threshold){
+				next;
+			}
+#			next if ($qdif > $alignment_threshold or $sdif > $alignment_threshold);
 		}
 		# if we reach this point, we simply store the query and subject IDs of BLAST matches that we want
 		# to keep for further processing, 
@@ -496,7 +514,7 @@ sub cluster_n_graph {
 		} # parents
 #		print "2) Size of %hit hash is now ", scalar(keys(%hit))," elements \n\n";
 		
-		# now delete the occurrence of the current top hit as matches to other query sequences in %hit
+		# now delete the occurrence of any matches to the top hit (including self-hits) as matches to other query sequences in %hit
 		# this might be quite rare but will happen, it won't change the number of primary keys in %hit though
 		foreach my $id1 (keys %hit) {
 			foreach my $id2 (keys %{$hit{$id1}}) {
@@ -548,7 +566,6 @@ sub cluster_n_graph {
 	# get sequences of each cluster and plot individual clusters
 	print STDERR "Processing clusters...";
 	for (my $i = 0; $i < @cluster; $i++) {
-		
 		#last if $i == $PEAKS;
 		last if (($cluster[$i]{mass} / $max_mass) < $mass_threshold);  
 		
@@ -585,8 +602,8 @@ sub cluster_n_graph {
 		if(($mode eq "global") && ($cluster[$i]{size} >= $min_cluster_size)){
 			my $pairwise_comparisons = @identities;	
 			my $average_identity = sprintf("%.2f", (sum @identities) / $pairwise_comparisons);
-			print STDERR "\n$i) n=$cluster[$i]{size} There were $no_match pairwise comparisons that were not in BLAST output (compared to $pairwise_comparisons that were)\n";
-			print STDERR "Average \%identity = $average_identity\n";				
+#			print STDERR "\n$i) n=$cluster[$i]{size} There were $no_match pairwise comparisons that were not in BLAST output (compared to $pairwise_comparisons that were)\n";
+#			print STDERR "Average \%identity = $average_identity\n";				
 			
 			$cluster[$i]{mean}  = $average_identity;
 			$cluster[$i]{stdev} = sprintf("%.2f",sqrt(sum(map {($_ - $average_identity) ** 2} @identities) / ($pairwise_comparisons-1)));
