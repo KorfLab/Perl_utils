@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # revcomp.pl
 #
@@ -14,8 +14,11 @@
 #
 #######################################################################################
 
-use strict;
+use strict; use warnings;
+use Keith;
 use FAlite;
+
+die "Usage: revcomp.pl <input_FASTA_file>\n" unless (@ARGV == 1);
 
 open(IN, $ARGV[0]) or die "Can't open $ARGV[0]\n";
 my $FA = new FAlite (\*IN);
@@ -28,36 +31,12 @@ while (my $entry = $FA->nextEntry) {
 	my $def = $entry->def;
 	my $revcom = reverse $seq;
 	$revcom =~ tr/ACGTacgt/TGCAtgca/;
-	my $tidied = &tidy_seq($revcom);
+	my $tidied = Keith::tidy_seq($revcom);
 	print OUT "$def\n$tidied\n";
 }
 
 close(IN);
 close(OUT);
 
-sub tidy_seq{
-#adds a new line character every 60 bases  
-    my ($seq) = @_;
-    $seq =~ s/[\s\n]//g;
-    $seq =~ tr/a-z/A-Z/;
-    
-    my ($output_seq) = "";
-    my (@seq2) = "";
-    my ($start,$end);
-
-    @seq2 = split(//,$seq);
-    my $length = @seq2;
-    my ($to_add) = int($length/60);
-
-    $end = $start= 0;
-
-    foreach (1..$to_add){
-        $output_seq .= substr($seq,$start,60);
-        $output_seq .= "\n";
-        $start += 60;
-    }
-    $output_seq .= substr($seq,$start);
-    return ($output_seq);
-}
 
 exit(0);
