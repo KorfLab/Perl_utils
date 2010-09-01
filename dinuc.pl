@@ -149,7 +149,7 @@ sub print_output{
 	else{			
 		print "Total number of dinucleotides: $dinuc_count\n\n";
 
-		print "AA\tAC\tAG\tAT\tCA\tCC\tCG\tCT\tCA\tCC\tCG\tCT\tTA\tTC\tTG\tTT\tOther\n";
+		print "AA\tAC\tAG\tAT\tCA\tCC\tCG\tCT\tGA\tGC\tCG\tCT\tTA\tTC\tTG\tTT\tOther\n";
 		print "$aa\t$ac\t$ag\t$at\t$ca\t$cc\t$cg\t$ct\t$ga\t$gc\t$gg\t$gt\t$ta\t$tc\t$tg\t$tt\t$o\n\n";
 
 		print "%AA\t%AC\t%AG\t%AT\t%CA\t%CC\t%CG\t%CT\t%CA\t%CC\t%CG\t%CT\t%TA\t%TC\t%TG\t%TT\n";
