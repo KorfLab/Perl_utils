@@ -57,6 +57,9 @@ sub display {
     	print "<TD width=110><A href=\"/software.html\"><FONT color=#ffffff>Software & Data</FONT></A></TD>\n";
     	print "<TD width=110><A href=\"/Unix_and_Perl/index.html\"><FONT color=#ffffff>Unix & Perl course</FONT></A></TD>\n";
         print "</TR>\n";
+	  	print "<TR bgcolor=#191970 align middle>\n";
+	    print "<TD colspan=7 align=center><font color=#ffffff size=\"-1\"><!--#config timefmt=\"%A %B %d, %Y\" --><!--#echo var=\"DATE_LOCAL\" --></font></TD>\n";
+		print "</TR>\n";
         print "</TABLE>\n";
         print "</CENTER>\n";
 
