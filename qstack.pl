@@ -60,7 +60,7 @@ $MISMATCH  = $opt_n if $opt_n;
 
 my $tmp_dna = "tmp.qstack.$$.dna";
 my $tmp_rep = "tmp.qstack.$$.blast";
-my $p1 = 'M=$MATCH N=$MISMATCH kap mformat=3 hspmax=0 B=2147483647 V=0'; # warnings? notes?
+my $p1 = "M=$MATCH N=$MISMATCH kap mformat=3 hspmax=0 B=2147483647 V=0"; # warnings? notes?
 my $p2 = "$GAPS W=$WORDSIZE S=$MINSCORE S2=$MINSCORE";
 $p2 .= " hspmax=$HSPMAX -warnings" if $HSPMAX;
 $p2 .= " WINK=$WINK" if $WINK;
