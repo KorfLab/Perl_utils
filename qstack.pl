@@ -2,8 +2,8 @@
 use strict; use warnings;
 use FAlite;
 use Getopt::Std;
-use vars qw($opt_d $opt_g $opt_h $opt_s $opt_w $opt_W $opt_x $opt_i $opt_G $opt_T);
-getopts('dgh:s:w:W:x:i:GT:');
+use vars qw($opt_d $opt_g $opt_h $opt_s $opt_w $opt_W $opt_x $opt_i $opt_G $opt_T $opt_m $opt_n $opt_q $opt_r);
+getopts('dgh:s:w:W:x:i:GT:m:n:q:r:');
 
 my $MINSCORE  = 20;
 my $MAXCONTIG = 100000;
@@ -12,27 +12,37 @@ my $WINK      = 0;
 my $HSPMAX    = 0;
 my $PERCENT   = 75;
 my $GLOBALT   = 2;
-
+my $MATCH     = 1;
+my $MISMATCH  = -1;
+my $GAPINS    = 2;
+my $GAPEXT    = 2;
 
 die "
 QSTACK - Multiplex BLASTN (variable read length)
 usage: qstack.pl [options] <blastn db> <fasta file>
 options:
-  -d           dust sequence       [default off]
-  -g           allow gaps          [default no gaps]
-  -h  <int>    hsp max             [default $HSPMAX]
-  -s  <int>    min score           [default $MINSCORE, +1,-1,-2 method]
-  -i  <float>  min percent         [default $PERCENT]
-  -w  <int>    wordsize            [default $WORDSIZE]
-  -W  <int>    wink                [default unspecified]
-  -x  <int>    multiplex length    [default $MAXCONTIG]
-  -G           global-ish align    [default off]
-  -T  <int>    global threshold    [default $GLOBALT]
+  -d           dust sequence         [default off]
+  -g           allow gaps            [default no gaps]
+  -h  <int>    hsp max               [default $HSPMAX]
+  -s  <int>    min score             [default $MINSCORE, +1,-1,-2 method]
+  -i  <float>  min percent           [default $PERCENT]
+  -w  <int>    wordsize              [default $WORDSIZE]
+  -W  <int>    wink                  [default unspecified]
+  -x  <int>    multiplex length      [default $MAXCONTIG]
+  -G           global-ish align      [default off]
+  -T  <int>    global threshold      [default $GLOBALT]
+  -m  <int>    match score           [default $MATCH]
+  -n  <int>    mismatch score        [default $MISMATCH]
+  -q  <int>    gap insertion penalty [default $GAPINS]
+  -r  <int>    gap extension penalty [default $GAPEXT]
+
 " unless @ARGV == 2;
 
 my ($DB, $QUERY) = @ARGV;
 my $DUST   = $opt_d ? 'filter=dust' : '';
-my $GAPS   = $opt_g ? 'Q=2 R=2' : 'nogap';
+$GAPINS    = $opt_q if $opt_q;
+$GAPEXT    = $opt_r if $opt_r;
+my $GAPS   = $opt_g ? "Q=$GAPINS R=$GAPEXT" : 'nogap';
 $MINSCORE  = $opt_s if $opt_s;
 $WORDSIZE  = $opt_w if $opt_w;
 $WINK      = $opt_W if $opt_W;
@@ -41,6 +51,8 @@ $HSPMAX    = $opt_h if $opt_h;
 $PERCENT   = $opt_i if $opt_i;
 my $GLOBAL = $opt_G;
 $GLOBALT   = $opt_T if $opt_T;
+$MATCH     = $opt_m if $opt_m;
+$MISMATCH  = $opt_n if $opt_n;
 
 ###############################################################################
 # Setup
@@ -48,7 +60,7 @@ $GLOBALT   = $opt_T if $opt_T;
 
 my $tmp_dna = "tmp.qstack.$$.dna";
 my $tmp_rep = "tmp.qstack.$$.blast";
-my $p1 = 'M=1 N=-1 kap mformat=3 hspmax=0 B=2147483647 V=0'; # warnings? notes?
+my $p1 = 'M=$MATCH N=$MISMATCH kap mformat=3 hspmax=0 B=2147483647 V=0'; # warnings? notes?
 my $p2 = "$GAPS W=$WORDSIZE S=$MINSCORE S2=$MINSCORE";
 $p2 .= " hspmax=$HSPMAX -warnings" if $HSPMAX;
 $p2 .= " WINK=$WINK" if $WINK;
