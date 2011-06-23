@@ -116,6 +116,17 @@ sub display {
 		} elsif ($type eq 'text') {
 			print @$element;
 			print $c->br;
+		} elsif ($type eq 'radio_group'){
+			my $name = shift @$element;
+			my @value;
+			foreach my $item (@$element) {
+				push @value, $item;
+			}
+			print $text, $c->br,
+				$c->radio_group(
+					-name => $name,
+					'-values' => \@value,),
+				$c->p;
 		}
 	}
 	print $c->p;
