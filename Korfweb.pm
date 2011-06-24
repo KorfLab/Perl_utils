@@ -122,8 +122,7 @@ sub display {
 			foreach my $item (@$element) {
 				push @value, $item;
 			}
-			print $c->br,
-				$c->radio_group(
+			print $c->radio_group(
 					-name => $name,
 					'-values' => \@value,),
 				$c->p;
