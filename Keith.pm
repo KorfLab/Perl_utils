@@ -143,7 +143,50 @@ sub get_random_integer{
     ($min, $max) = ($max, $min)  if  $min > $max; 
     return $min + int rand(1 + $max - $min);
 }
+
+
+# take a FASTA file and just double up all the sequences
+# can be useful for helping find the 'edges' of a tandem repeat
+sub tandemify_sequence{
+
+	my ($input_file, $output_file) = @_;
+	
+	# choose new output name if necessary
+	if (not defined $output_file){
+		$output_file = $input_file;
+		
+		# check for .fa, .fasta, .seq, or .dna ending
+		if ($output_file =~ m/(fa|fasta|seq|dna)$/){
+			my $suffix = $1;
+			$output_file =~ s/(fa|fasta|seq|dna)$//;
+			$output_file .= "x2.$suffix";
+		} else {
+			$output_file = $input_file . ".x2";
+		} 
+	}
+	
+	# parse info from FASTA file
+	my ($in, $out);
+	open($in,  "<", "$input_file")  or die "Can't read from $input_file\n";
+	open($out, ">", "$output_file") or die "Can't write to $output_file\n";
+
+	my $fasta = new FAlite(\*$in);
+
+	# loop through each sequence in target file
+	while(my $entry = $fasta->nextEntry){
+	    my $seq = Keith::tidy_seq($entry->seq);
+
+		my $header = $entry->def;
+		print $out "$header\n$seq\n\n$seq\n\n";
+	}
+
+	close($in);
+	close($out);
+}
+
+
 1;
+
 
 __END__
 
@@ -219,6 +262,14 @@ Returns the reverse complement of a DNA sequence
 =head2 get_random_integer
 
 Specify a minimum and maximum value, and this routine just calculates a random integer between those values
+
+
+=head2 tandemify_sequence
+
+Take a FASTA file and just doubles every sequence and writes to a new file (which can be specified as
+a second argument)
+
+
 
 
 
