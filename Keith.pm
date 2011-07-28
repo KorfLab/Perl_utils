@@ -5,6 +5,8 @@ package Keith;
 # Last updated on: $Date$
 
 use strict;
+use FAlite;
+
 use List::Util qw(sum);
 
 # simple subroutine to just count nucleotide frequencies
